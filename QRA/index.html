@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Rejection Analysis Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+  <style>
+    /* Canvas fills width, block display, with bottom margin for spacing */
+    canvas {
+      width: 100% !important;
+      display: block;
+      box-sizing: border-box;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body class="bg-black text-white font-sans text-sm">
+
+  <!-- Header -->
+  <div class="flex justify-between items-center px-4 py-2 bg-gray-900">
+    <h1 class="text-xl font-bold">Rejection Analysis Dashboard</h1>
+    <p class="text-gray-400 text-sm" id="timestamp"></p>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 px-2 pt-2" style="height: 80vh;">
+    <div class="bg-gray-900 p-2 rounded h-[40vh] pb-8">
+      <h2 class="text-center font-semibold underline mb-1">Live Rejection (No’s)</h2>
+      <canvas id="liveCountChart"></canvas>
+    </div>
+    <div class="bg-gray-900 p-2 rounded h-[40vh] pb-8">
+      <h2 class="text-center font-semibold underline mb-1">Live Rejection %</h2>
+      <canvas id="livePercentChart"></canvas>
+    </div>
+    <div class="bg-gray-900 p-2 rounded h-[40vh] pb-8">
+      <h2 class="text-center font-semibold underline mb-1">Yesterday Rejection (No’s)</h2>
+      <canvas id="yesterdayCountChart"></canvas>
+    </div>
+    <div class="bg-gray-900 p-2 rounded h-[40vh] pb-8">
+      <h2 class="text-center font-semibold underline mb-1">Yesterday Rejection %</h2>
+      <canvas id="yesterdayPercentChart"></canvas>
+    </div>
+    <div class="col-span-2 bg-gray-900 p-2 rounded h-[40vh] pb-8">
+      <h2 class="text-center font-semibold underline mb-1">Last 7 Days Part Wise Rejection</h2>
+      <canvas id="weeklyChart"></canvas>
+    </div>
+    <div class="col-span-2 bg-gray-900 p-2 rounded h-[40vh] pb-8">
+      <h2 class="text-center font-semibold underline mb-1">Rejection Wise Contribution</h2>
+      <canvas id="reasonsChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Table and Photo -->
+  <div class="flex flex-col lg:flex-row justify-between gap-2 px-2 pt-3 pb-6 mt-2 bg-gray-950 rounded-lg shadow">
+    <div class="w-full lg:w-2/3">
+      <h2 class="text-base mb-2 font-semibold underline">Rejection Details</h2>
+      <table class="w-full text-xs border border-gray-700 text-white">
+        <thead class="bg-gray-800 text-red-400 font-bold underline">
+          <tr>
+            <th class="p-2 border">S.No</th>
+            <th class="p-2 border">Part Name</th>
+            <th class="p-2 border">Rejection Type</th>
+            <th class="p-2 border">Temporary Action</th>
+            <th class="p-2 border">Permanent Action</th>
+            <th class="p-2 border">Responsibility</th>
+            <th class="p-2 border">Target Date</th>
+          </tr>
+        </thead>
+        <tbody id="actionTableBody">
+          <tr><td colspan="7" class="text-center p-3 text-gray-400">Loading data...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="w-full lg:w-1/3 flex flex-col justify-center items-center bg-gray-900 p-3 rounded-lg">
+      <h2 class="text-base font-semibold underline mb-2">Part Rejection Photo</h2>
+      <img src="https://via.placeholder.com/300x200?text=Rejection+Photo" alt="Rejected Part" class="max-h-48 rounded shadow" />
+    </div>
+  </div>
+
+  <script>
+    const charts = {};
+    const API = (endpoint) => `http://127.0.0.1:1880/${endpoint}`; // Change IP if needed
+
+    const updateTimestamp = () => {
+      document.getElementById("timestamp").textContent = new Date().toLocaleString();
+    };
+    setInterval(updateTimestamp, 1000);
+    updateTimestamp();
+
+    Chart.register(ChartDataLabels);
+
+    const renderBarChart = (id, labels, data) => {
+      const ctx = document.getElementById(id).getContext("2d");
+      if (charts[id]?.destroy) charts[id].destroy();
+      charts[id] = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{
+            data,
+            backgroundColor: "#3b82f6",
+            borderRadius: 4
+          }]
+        },
+        options: {
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            datalabels: {
+              color: "#fff",
+              anchor: "end",
+              align: "top",
+              font: { weight: "bold", size: 11 }
+            }
+          },
+          scales: {
+            x: { ticks: { color: "#fff" } },
+            y: { beginAtZero: true, ticks: { color: "#fff" } }
+          }
+        },
+        plugins: [ChartDataLabels]
+      });
+    };
+
+    const renderParetoChart = (id, labels, values) => {
+      const ctx = document.getElementById(id).getContext("2d");
+      const total = values.reduce((a, b) => a + b, 0);
+      let cumulative = 0;
+      const percents = values.map(v => (cumulative += v) / total * 100);
+      if (charts[id]?.destroy) charts[id].destroy();
+      charts[id] = new Chart(ctx, {
+        data: {
+          labels,
+          datasets: [
+            {
+              type: "bar",
+              data: values,
+              backgroundColor: "#3b82f6",
+              borderRadius: 4,
+              yAxisID: "y"
+            },
+            {
+              type: "line",
+              data: percents,
+              borderColor: "#f97316",
+              tension: 0.3,
+              borderWidth: 2,
+              yAxisID: "percentAxis"
+            }
+          ]
+        },
+        options: {
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, datalabels: { display: false } },
+          scales: {
+            x: { ticks: { color: "#fff" } },
+            y: { beginAtZero: true, ticks: { color: "#fff" } },
+            percentAxis: {
+              type: "linear",
+              position: "right",
+              beginAtZero: true,
+              max: 100,
+              grid: { drawOnChartArea: false },
+              ticks: { color: "#f97316", callback: v => `${v}%` }
+            }
+          }
+        },
+        plugins: [ChartDataLabels]
+      });
+    };
+
+    const renderLineWithMarkersChart = (id, labels, data) => {
+      const ctx = document.getElementById(id).getContext("2d");
+      if (charts[id]?.destroy) charts[id].destroy();
+      charts[id] = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: "%",
+            data,
+            borderColor: "#f97316",
+            backgroundColor: "#f97316",
+            fill: false,
+            tension: 0.3,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            pointBackgroundColor: "#f97316",
+            pointBorderColor: "#fff",
+            borderWidth: 2,
+          }]
+        },
+        options: {
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            datalabels: { display: false }
+          },
+          scales: {
+            x: { ticks: { color: "#fff" } },
+            y: {
+              beginAtZero: true,
+              max: 100,
+              ticks: {
+                color: "#fff",
+                callback: v => `${v}%`
+              }
+            }
+          }
+        },
+        plugins: [ChartDataLabels]
+      });
+    };
+
+    const renderDonutChart = (id, labels, data) => {
+      const ctx = document.getElementById(id).getContext("2d");
+      if (charts[id]?.destroy) charts[id].destroy();
+      charts[id] = new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels,
+          datasets: [{
+            data,
+            backgroundColor: ["#3b82f6", "#f97316", "#fbbf24", "#f87171", "#10b981", "#8b5cf6", "#ef4444"],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "right", labels: { color: "#fff" } },
+            datalabels: {
+              color: "#fff",
+              font: { size: 10, weight: "bold" }
+            }
+          }
+        },
+        plugins: [ChartDataLabels]
+      });
+    };
+    const fetchAndRender = async () => {
+  try {
+    const [
+      liveData,
+      yesterdayData,
+      weekly,
+      reasons,
+      actions
+    ] = await Promise.all([
+      fetch(API("rejection_live")).then(r => r.json()),
+      fetch(API("rejection_yesterday")).then(r => r.json()),
+      fetch(API("rejection_weekly")).then(r => r.json()),
+      fetch(API("rejection_reasons")).then(r => r.json()),
+      fetch(API("rejection_actions")).then(r => r.json())
+    ]);
+
+    // Extract count and percent for live data
+    const liveCount = liveData.map(d => ({ part: d.part, count: d.count }));
+    const livePercent = liveData.map(d => ({ part: d.part, count: d.percent }));
+
+    // Extract count and percent for yesterday data
+    const yesterdayCount = yesterdayData.map(d => ({ part: d.part, count: d.count }));
+    const yesterdayPercent = yesterdayData.map(d => ({ part: d.part, count: d.percent }));
+
+    // Render charts
+    renderBarChart("liveCountChart", liveCount.map(d => d.part), liveCount.map(d => d.count));
+    renderLineWithMarkersChart("livePercentChart", livePercent.map(d => d.part), livePercent.map(d => d.count));
+    renderBarChart("yesterdayCountChart", yesterdayCount.map(d => d.part), yesterdayCount.map(d => d.count));
+    renderLineWithMarkersChart("yesterdayPercentChart", yesterdayPercent.map(d => d.part), yesterdayPercent.map(d => d.count));
+    renderParetoChart("weeklyChart", weekly.map(d => d.part), weekly.map(d => d.count));
+    renderDonutChart("reasonsChart", reasons.map(d => d.reason), reasons.map(d => d.count));
+
+    // Fill rejection actions table
+    const tbody = document.getElementById("actionTableBody");
+    tbody.innerHTML = "";
+    actions.forEach((row, i) => {
+      tbody.innerHTML += `
+        <tr>
+          <td class="p-2 border border-gray-700">${i + 1}</td>
+          <td class="p-2 border border-gray-700">${row.part}</td>
+          <td class="p-2 border border-gray-700">${row.type}</td>
+          <td class="p-2 border border-gray-700">${row.temporary}</td>
+          <td class="p-2 border border-gray-700">${row.permanent}</td>
+          <td class="p-2 border border-gray-700">${row.owner}</td>
+          <td class="p-2 border border-gray-700">${row.target}</td>
+        </tr>`;
+    });
+
+  } catch (err) {
+    console.error("Error fetching or rendering data:", err);
+    document.getElementById("actionTableBody").innerHTML =
+      `<tr><td colspan="7" class="text-center p-3 text-red-400">Error loading data</td></tr>`;
+  }
+};
+
+
+     fetchAndRender();
+    setInterval(fetchAndRender, 60000);
+  </script>
+</body>
+</html>

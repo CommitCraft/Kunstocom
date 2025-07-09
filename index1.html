@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard with Animated Solid Gauges</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Highcharts Libraries for Gauges -->
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/highcharts-more.js"></script>
+    <script src="https://code.highcharts.com/modules/solid-gauge.js"></script>
+
+    <!-- Chart.js Libraries for Bar Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        background-color: #f3f4f6;
+        font-family: system-ui, sans-serif;
+        box-sizing: border-box;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: inherit;
+      }
+
+      body > div.grid {
+        width: 100vw;
+        height: 100vh;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        gap: 4px !important;
+      }
+
+      .machine-block {
+        padding: 0 !important;
+        margin: 0 !important;
+        height: 100%;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        background: white;
+        border-radius: 0 !important;
+        user-select: none;
+        overflow: hidden;
+      }
+
+      .machine-block h4 {
+        margin: 0;
+        padding: 0;
+        text-align: center;
+        font-weight: 700;
+        font-size: 1rem;
+        background: #e5e7eb;
+        border-bottom: 1px solid #d1d5db;
+      }
+
+      .machine-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3px;
+        height: calc(100% - 2.25rem);
+        overflow: hidden;
+      }
+
+      .machine-column {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      .machine-column h4 {
+        margin: 0;
+        padding: 0;
+        text-align: center;
+        font-weight: 600;
+        font-size: 1rem;
+        background: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .gauges-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        /* 1x4 layout */
+        gap: 1px;
+        height: auto;
+      }
+
+      .gauges-grid > div {
+        height: 90px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      canvas {
+        width: 100% !important;
+        height: 45% !important;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="grid" id="rootGrid"></div>
+
+    <script>
+      const globalUrl = "http://10.0.156.2:1880";
+      const machines = ["imm41", "imm42", "imm43", "imm44"];
+      const machineTitles = {
+        imm41: "IMM 41",
+        imm42: "IMM 42",
+        imm43: "IMM 43",
+        imm44: "IMM 44",
+      };
+
+      const gauges = [
+        { key: "oee", label: "OEE" },
+        { key: "a", label: "A" },
+        { key: "p", label: "P" },
+        { key: "q", label: "Q" },
+      ];
+
+      const machineEndpoints = {};
+      machines.forEach((machine) => {
+        machineEndpoints[machine] = {
+          keyMetrics: `${globalUrl}/${machine}_keyMetrics`,
+          liveGauge: `${globalUrl}/${machine}_oeeData`,
+          hourlyData: `${globalUrl}/${machine}_hourlydata`,
+          lastDayGauge: (date) =>
+            `${globalUrl}/${machine}_oeeData?date=${date}`,
+          lastWeekData: `${globalUrl}/${machine}_weeklydata`,
+        };
+      });
+
+      function getColor(value) {
+        if (value < 70) return "#FF4C4C";
+        if (value < 90) return "#FFD700";
+        return "#4CAF50";
+      }
+
+      function renderGauge(containerId, value, label) {
+        return Highcharts.chart(containerId, {
+          chart: {
+            type: "solidgauge",
+            height: 120,
+            spacing: [0, 0, 0, 0],
+            margin: [0, 0, 0, 0],
+            style: { fontFamily: "sans-serif" },
+          },
+          title: null,
+          pane: {
+            startAngle: -110,
+            endAngle: 110,
+            background: [
+              {
+                outerRadius: "102%",
+                innerRadius: "65%",
+                backgroundColor: "#EEE",
+                shape: "arc",
+              },
+            ],
+          },
+          yAxis: {
+            min: 0,
+            max: 100,
+            lineWidth: 0,
+            tickWidth: 0,
+            minorTickInterval: null,
+            labels: {
+              enabled: false,
+            },
+            plotBands: [
+              { from: 0, to: 70, color: "#FF4C4C" },
+              { from: 70, to: 90, color: "#FFD700" },
+              { from: 90, to: 100, color: "#4CAF50" },
+            ],
+            stops: [
+              [0.7, "#FF4C4C"],
+              [0.9, "#FFD700"],
+              [1.0, "#4CAF50"],
+            ],
+          },
+          series: [
+            {
+              name: label,
+              data: [
+                {
+                  y: value,
+                  radius: "90%",
+                  innerRadius: "45%",
+                },
+              ],
+              dataLabels: {
+                useHTML: true,
+                borderWidth: 0,
+                padding: 0,
+
+                style: {
+                  textAlign: "center",
+                  color: getColor(value),
+                },
+                formatter: function () {
+                  const dynamicColor = getColor(this.y);
+                  return `
+              <div style="font-size: 12px; color: #555; margin-bottom: 4px;">${label}</div>
+              <div style="font-size: 14px; font-weight: bold; color: ${dynamicColor};">${this.y}%</div>
+            `;
+                },
+              },
+              color: getColor(value),
+            },
+          ],
+          tooltip: { enabled: false },
+          credits: { enabled: false },
+        });
+      }
+
+      function animateGaugeUpdate(chart, val, label) {
+        const color = getColor(val);
+        const point = chart.series[0].points[0];
+        if (point) {
+          point.update(val, true, { duration: 1000 });
+        }
+        chart.series[0].update({
+          color: color,
+          dataLabels: {
+            formatter: function () {
+              const dynamicColor = getColor(this.y);
+              return `
+                <div style="font-size: 12px; color: #555; margin-bottom: 4px;">${label}</div>
+                <div style="font-size: 14px; font-weight: bold; color: ${dynamicColor};">${this.y}%</div>
+              `;
+            },
+          },
+        });
+      }
+
+      async function safeFetchJSON(url) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return await res.json();
+        } catch (e) {
+          console.error("Fetch error:", url, e);
+          return null;
+        }
+      }
+
+      const rootGrid = document.getElementById("rootGrid");
+      const machineCharts = {};
+
+      machines.forEach((machine) => {
+        const machineDiv = document.createElement("div");
+        machineDiv.classList.add("machine-block");
+
+        machineDiv.innerHTML = `
+          <h4 class="text-sm font-small text-gray-800 text-center">
+  Status: <span id="${machine}-status-val" class="font-semibold">—</span>
+</h4>
+
+          <div id="${machine}-keyMetricsContainer" class="w-full"></div>
+          <div class="machine-content">
+            <div class="machine-column">
+              <h4>Live Performance OEE</h4>
+              <div class="gauges-grid" id="${machine}-live-gauges"></div>
+              <h4>${machineTitles[machine]} Hourly Production (Live)</h4>
+              <canvas id="${machine}-hourlyChart"></canvas>
+            </div>
+            <div class="machine-column">
+              <h4>Last Day Performance OEE</h4>
+              <div class="gauges-grid" id="${machine}-lastday-gauges"></div>
+              <h4>Last 7 Days OEE</h4>
+              <canvas id="${machine}-lastWeekChart"></canvas>
+            </div>
+          </div>
+        `;
+
+        rootGrid.appendChild(machineDiv);
+
+        machineCharts[machine] = {
+          liveGauges: {},
+          lastDayGauges: {},
+          hourlyChart: null,
+          lastWeekChart: null,
+        };
+
+        gauges.forEach((g, i) => {
+          const liveDiv = document.createElement("div");
+          liveDiv.id = `${machine}-live-gauge${i + 1}`;
+          document
+            .getElementById(`${machine}-live-gauges`)
+            .appendChild(liveDiv);
+
+          const lastDayDiv = document.createElement("div");
+          lastDayDiv.id = `${machine}-lastday-gauge${i + 1}`;
+          document
+            .getElementById(`${machine}-lastday-gauges`)
+            .appendChild(lastDayDiv);
+
+          machineCharts[machine].liveGauges[liveDiv.id] = renderGauge(
+            liveDiv.id,
+            0,
+            g.label
+          );
+          machineCharts[machine].lastDayGauges[lastDayDiv.id] = renderGauge(
+            lastDayDiv.id,
+            0,
+            g.label
+          );
+        });
+
+        const container = document.getElementById(
+          `${machine}-keyMetricsContainer`
+        );
+        container.innerHTML = `
+          <div class="bg-white p-0 w-full">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-0.5 text-center">
+              <div class="bg-gray-100 p-1 rounded shadow-sm">
+                <div class="text-[10px] text-gray-500">Status</div>
+                <div class="text-sm font-medium text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis" id="${machine}-status-val">—</div>
+              </div>
+              <div class="bg-gray-100 p-1 rounded shadow-sm">
+                <div class="text-[10px] text-gray-500">Part Name</div>
+                <div class="text-sm font-medium text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis" id="${machine}-partName-val">—</div>
+              </div>
+              <div class="bg-gray-100 p-1 rounded shadow-sm">
+                <div class="text-[10px] text-gray-500">Part Count</div>
+                <div class="text-sm font-medium text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis" id="${machine}-partCount-val">—</div>
+              </div>
+              <div class="bg-gray-100 p-1 rounded shadow-sm">
+                <div class="text-[10px] text-gray-500">Downtime</div>
+                <div class="text-sm font-medium text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis" id="${machine}-downtime-val">—</div>
+              </div>
+              <div class="bg-gray-100 p-1 rounded shadow-sm">
+                <div class="text-[10px] text-gray-500">Rejection</div>
+                <div class="text-sm font-medium text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis" id="${machine}-rejection-val">—</div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      async function updateKeyMetrics(machine) {
+        const url = machineEndpoints[machine].keyMetrics;
+        try {
+          const data = await safeFetchJSON(url);
+          if (!data) return;
+          document.getElementById(`${machine}-status-val`).textContent =
+            data.Status || "N/A";
+          document.getElementById(`${machine}-partName-val`).textContent =
+            data["Part Name"] || "No Plan";
+          document.getElementById(`${machine}-partCount-val`).textContent =
+            data["Part Count"] ?? "0";
+          document.getElementById(`${machine}-downtime-val`).textContent =
+            data["Down Time"] ?? "0";
+          document.getElementById(`${machine}-rejection-val`).textContent =
+            data.Rejection ?? "0";
+        } catch (e) {
+          console.error(machine, "keyMetrics error:", e);
+        }
+      }
+
+      async function updateMachineLiveData(machine) {
+        const urls = machineEndpoints[machine];
+        const [gaugeData, metricsData, hourlyData] = await Promise.all([
+          safeFetchJSON(urls.liveGauge),
+          safeFetchJSON(urls.keyMetrics),
+          safeFetchJSON(urls.hourlyData),
+        ]);
+        if (!gaugeData) return;
+
+        gauges.forEach((g, i) => {
+          const val = Math.min(
+            Math.max(parseFloat(gaugeData[g.key]) || 0, 0),
+            100
+          );
+          const id = `${machine}-live-gauge${i + 1}`;
+          const chart = machineCharts[machine].liveGauges[id];
+          if (chart) {
+            animateGaugeUpdate(chart, val, g.label);
+          }
+        });
+
+        if (hourlyData && hourlyData.productionCounts) {
+          const ctx = document
+            .getElementById(`${machine}-hourlyChart`)
+            .getContext("2d");
+          if (machineCharts[machine].hourlyChart)
+            machineCharts[machine].hourlyChart.destroy();
+
+          const targets = hourlyData.targets || [];
+          const barColors = hourlyData.productionCounts.map((c, i) =>
+            c >= (targets[i] || 0) ? "#22c55e" : "#ef4444"
+          );
+
+          function getChangePoints(arr) {
+            return arr.map(
+              (val, i, a) => (i === 0 || val !== a[i - 1] ? 3 : 0) // 3 = visible dot, 0 = hidden
+            );
+          }
+
+          machineCharts[machine].hourlyChart = new Chart(ctx, {
+            type: "bar",
+            data: {
+              labels: hourlyData.hours || [],
+              datasets: [
+                {
+                  label: "Production Count",
+                  data: hourlyData.productionCounts,
+                  backgroundColor: barColors,
+                  barThickness: 8,
+                  borderRadius: 4,
+                },
+                {
+                  label: "Target",
+                  type: "line",
+                  data: targets.map((v) => (v === 0 ? null : v)),
+                  borderColor: "#facc15",
+                  borderWidth: 2,
+                  pointRadius: getChangePoints(targets),
+                  pointBackgroundColor: "#facc15",
+                  tension: 0.3,
+                  datalabels: {
+                    display: false,
+                  },
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                legend: { display: false },
+                labels: {
+                  boxWidth: 8, // smaller box width
+                  boxHeight: 8, // smaller box height (if using Chart.js v4+)
+                  font: {
+                    size: 9, // or 10 if you want it smaller
+                  },
+                  padding: 8, // optional: tighter spacing
+                },
+                tooltip: {
+                  callbacks: {
+                    label: (ctx) =>
+                      ctx.dataset.label === "Target"
+                        ? `Target: ${ctx.raw}`
+                        : `Count: ${ctx.raw}`,
+                  },
+                },
+                datalabels: {
+                  anchor: "end",
+                  align: "end",
+                  color: "#1f2937",
+                  font: { weight: "normal" },
+                  formatter: (value) => value,
+                },
+              },
+              scales: {
+                y: { beginAtZero: true, suggestedMax: 110 },
+                x: {},
+              },
+            },
+            plugins: [ChartDataLabels],
+          });
+        }
+      }
+
+      async function updateMachineLastDayData(machine) {
+        const date = new Date(Date.now() - 86400000)
+          .toISOString()
+          .split("T")[0];
+        const [data, week] = await Promise.all([
+          safeFetchJSON(machineEndpoints[machine].lastDayGauge(date)),
+          safeFetchJSON(machineEndpoints[machine].lastWeekData),
+        ]);
+        if (!data) return;
+
+        gauges.forEach((g, i) => {
+          const val = Math.min(Math.max(parseFloat(data[g.key]) || 0, 0), 100);
+          const id = `${machine}-lastday-gauge${i + 1}`;
+          const chart = machineCharts[machine].lastDayGauges[id];
+          if (chart) {
+            animateGaugeUpdate(chart, val, g.label);
+          }
+        });
+
+        if (week && week.productionCounts) {
+          const ctx = document
+            .getElementById(`${machine}-lastWeekChart`)
+            .getContext("2d");
+          if (machineCharts[machine].lastWeekChart)
+            machineCharts[machine].lastWeekChart.destroy();
+
+          const barColors = week.productionCounts.map((c, i) =>
+            c >= (week.targets[i] || 0) ? "#22c55e" : "#ef4444"
+          );
+          machineCharts[machine].lastWeekChart = new Chart(ctx, {
+            type: "line",
+            data: {
+              labels: week.days || [],
+              datasets: [
+                {
+                  label: "Production Count",
+                  data: week.productionCounts,
+                  borderColor: "#3b82f6",
+                  backgroundColor: "#3b82f655",
+                  fill: true,
+                  tension: 0.3,
+                  pointBackgroundColor: "#2563eb",
+                  pointBorderColor: "#1e40af",
+                  borderWidth: 2,
+                },
+                // {
+                //   label: "Target",
+                //   data: week.targets,
+                //   borderColor: "#facc15",
+                //   borderWidth: 2,
+                //   borderDash: [6, 4],
+                //   pointRadius: 0,
+                // },
+              ],
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                legend: { display: false },
+                labels: {
+                  font: {
+                    size: 9, // or 10 if you want it smaller
+                  },
+                },
+                tooltip: {
+                  callbacks: {
+                    label: (ctx) =>
+                      ctx.dataset.label === "Target"
+                        ? `Target: ${ctx.raw}`
+                        : `Count: ${ctx.raw}`,
+                  },
+                },
+                datalabels: {
+                  anchor: "end",
+                  align: "end",
+                  color: "#1f2937",
+                  font: { weight: "normal" },
+                  formatter: (value) => value,
+                },
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  suggestedMax: Math.max(...week.targets, 100),
+                },
+                x: {},
+              },
+            },
+            plugins: [ChartDataLabels],
+          });
+        }
+      }
+
+      function refreshAllMachines() {
+        machines.forEach((machine) => {
+          updateKeyMetrics(machine);
+          updateMachineLiveData(machine);
+          updateMachineLastDayData(machine);
+        });
+      }
+      refreshAllMachines();
+      setInterval(refreshAllMachines, 15000);
+    </script>
+  </body>
+</html>

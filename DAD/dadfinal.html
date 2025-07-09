@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Downtime Analysis Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+  <style>
+    /* Ensure canvas fills container fully */
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+  </style>
+</head>
+<body class="bg-black text-white font-sans text-sm">
+
+  <!-- Header -->
+  <div class="flex justify-between items-center px-4 py-2 bg-gray-900">
+    <h1 class="text-xl font-bold">Downtime Analysis</h1>
+    <p class="text-gray-400 text-sm" id="timestamp"></p>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-2 px-2 pt-2" style="height: 80vh;">
+    <div class="bg-gray-900 pb-7 py-2 px-2  rounded h-[40vh]">
+      <h2 class="text-center font-semibold underline mb-1">Live Breakdown (Min)</h2>
+      <canvas id="liveChart" class="w-full h-full"></canvas>
+    </div>
+    <div class="bg-gray-900 pb-7 py-2 px-2 rounded h-[40vh]">
+      <h2 class="text-center font-semibold underline mb-1">Yesterday Breakdown (Min)</h2>
+      <canvas id="yesterdayChart" class="w-full h-full"></canvas>
+    </div>
+    <div class="bg-gray-900 pb-7 py-2 px-2 rounded h-[40vh]">
+      <h2 class="text-center font-semibold underline mb-1">Last 7 Days Machine Wise Breakdown</h2>
+      <canvas id="weeklyChart" class="w-full h-full"></canvas>
+    </div>
+    <div class="bg-gray-900 pb-7 py-2 px-2 rounded h-[40vh]">
+      <h2 class="text-center font-semibold underline mb-1">Breakdown Wise Contribution</h2>
+      <canvas id="reasonsChart" class="w-full h-full"></canvas>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="px-2 pt-3 pb-6 mt-2 bg-gray-950 rounded-lg shadow">
+    <h2 class="text-base mb-2 font-semibold underline">Top 5 Downtime Issues</h2>
+    <div class="overflow-auto max-h-[260px]">
+      <table class="w-full table-auto text-xs border border-gray-700 text-white">
+        <thead class="bg-gray-800 text-red-400 font-bold underline">
+          <tr>
+            <th class="p-2 border border-gray-700">S.No</th>
+            <th class="p-2 border border-gray-700">M/C Number</th>
+            <th class="p-2 border border-gray-700">Downtime Reason</th>
+            <th class="p-2 border border-gray-700">Temporary Action</th>
+            <th class="p-2 border border-gray-700">Permanent Action</th>
+            <th class="p-2 border border-gray-700">Responsibility</th>
+            <th class="p-2 border border-gray-700">Target Date</th>
+          </tr>
+        </thead>
+        <tbody id="actionTableBody">
+          <tr><td colspan="7" class="text-center p-3 text-gray-400">Loading data...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const charts = {};
+
+    // Update clock every second
+    const updateTimestamp = () => {
+      document.getElementById("timestamp").textContent = new Date().toLocaleString();
+    };
+    setInterval(updateTimestamp, 1000);
+    updateTimestamp();
+
+    Chart.register(ChartDataLabels);
+
+    const renderBarChart = (id, labels, data) => {
+      const ctx = document.getElementById(id).getContext('2d');
+      if (charts[id]?.destroy) charts[id].destroy();
+
+      charts[id] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            data,
+            backgroundColor: data.map(val => val > 1000 ? '#ef4444' : '#3b82f6'),
+            borderRadius: 4
+          }]
+        },
+        options: {
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            datalabels: {
+              color: '#fff',
+              anchor: 'end',
+              align: 'top',
+              font: { weight: 'bold', size: 11 }
+            }
+          },
+          scales: {
+            x: { ticks: { color: '#fff', font: { size: 10 } } },
+            y: { beginAtZero: true, ticks: { color: '#fff', font: { size: 10 } } }
+          }
+        },
+        plugins: [ChartDataLabels]
+      });
+    };
+
+    const renderParetoChart = (id, labels, values) => {
+      const ctx = document.getElementById(id).getContext('2d');
+      const total = values.reduce((a, b) => a + b, 0);
+      let cumulative = 0;
+      const percents = values.map(v => (cumulative += v) / total * 100);
+
+      if (charts[id]?.destroy) charts[id].destroy();
+
+      charts[id] = new Chart(ctx, {
+        data: {
+          labels,
+          datasets: [
+            {
+              type: 'bar',
+              label: 'Downtime (min)',
+              data: values,
+              backgroundColor: '#3b82f6',
+              borderRadius: 4,
+              yAxisID: 'y',
+              datalabels: {
+                display: false,
+                color: '#f97316',
+                anchor: 'end',
+                align: 'right',
+                font: { weight: 'bold', size: 11 },
+                formatter: (value, context) => `${percents[context.dataIndex].toFixed(1)}%`
+              }
+            },
+            {
+              type: 'line',
+              label: 'Cumulative %',
+              data: percents,
+              borderColor: '#f97316',
+              borderWidth: 2,
+              tension: 0.3,
+              pointBackgroundColor: '#f97316',
+              fill: false,
+              yAxisID: 'percentAxis',
+              datalabels: { display: false }
+            }
+          ]
+        },
+        options: {
+          maintainAspectRatio: false,
+          responsive: true,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { labels: { color: '#fff', font: { size: 11, weight: 'bold' } } },
+            datalabels: { display: false },
+            tooltip: { mode: 'index', intersect: false }
+          },
+          scales: {
+            x: { ticks: { color: '#fff', font: { size: 10 } }, grid: { display: false } },
+            y: {
+              beginAtZero: true,
+              ticks: { color: '#fff', font: { size: 10 } },
+              position: 'left',
+              title: { display: true, text: 'Minutes', color: '#fff' }
+            },
+            percentAxis: {
+              type: 'linear',
+              position: 'right',
+              beginAtZero: true,
+              min: 0,
+              max: 100,
+              grid: { drawOnChartArea: false },
+              ticks: { color: '#f97316', callback: v => `${v}%` },
+              title: { display: true, text: 'Cumulative %', color: '#f97316' }
+            }
+          }
+        },
+        plugins: [ChartDataLabels]
+      });
+    };
+
+    const renderDonutChart = (id, labels, data) => {
+      const ctx = document.getElementById(id).getContext('2d');
+      if (charts[id]?.destroy) charts[id].destroy();
+
+      charts[id] = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data,
+            backgroundColor: ['#3b82f6', '#f97316', '#fbbf24', '#f87171', '#10b981', '#8b5cf6', '#ef4444'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'right', labels: { color: '#fff', font: { size: 11 } } },
+            datalabels: {
+              color: '#fff',
+              formatter: val => `${Math.round(val)} min`,
+              font: { size: 10, weight: 'bold' }
+            }
+          },
+          responsive: true
+        },
+        plugins: [ChartDataLabels]
+      });
+    };
+
+    const fetchAndRender = () => {
+      fetch('/dta_dashboard_all')
+        .then(res => res.json())
+        .then(data => {
+          if (!data?.live || !data?.yesterday || !data?.last7days || !data?.reasons || !data?.actions) return;
+
+          renderBarChart('liveChart', data.live.map(d => d.machine), data.live.map(d => d.minutes));
+          renderBarChart('yesterdayChart', data.yesterday.map(d => d.machine), data.yesterday.map(d => d.minutes));
+
+          const sorted7d = data.last7days.sort((a, b) => b.minutes - a.minutes);
+          renderParetoChart('weeklyChart', sorted7d.map(d => d.machine), sorted7d.map(d => d.minutes));
+
+          renderDonutChart('reasonsChart', data.reasons.map(d => d.reason), data.reasons.map(d => d.minutes));
+
+          const tbody = document.getElementById('actionTableBody');
+          tbody.innerHTML = "";
+          const top5 = data.actions.slice(0, 5);
+          if (!top5.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4 text-gray-400">No actions available</td></tr>';
+          } else {
+            top5.forEach((row, i) => {
+              tbody.innerHTML += `
+                <tr>
+                  <td class="p-2 border border-gray-700">${i + 1}</td>
+                  <td class="p-2 border border-gray-700">${row.machine}</td>
+                  <td class="p-2 border border-gray-700">${row.reason}</td>
+                  <td class="p-2 border border-gray-700">${row.temporary}</td>
+                  <td class="p-2 border border-gray-700">${row.permanent}</td>
+                  <td class="p-2 border border-gray-700">${row.owner}</td>
+                  <td class="p-2 border border-gray-700">${row.target}</td>
+                </tr>`;
+            });
+          }
+        })
+        .catch(() => {
+          document.getElementById('actionTableBody').innerHTML =
+            '<tr><td colspan="7" class="text-center p-4 text-red-400">Error loading data</td></tr>';
+        });
+    };
+
+    fetchAndRender();
+    setInterval(fetchAndRender, 60000);
+  </script>
+</body>
+</html>

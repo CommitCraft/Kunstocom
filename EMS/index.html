@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Machine EMS Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <style>
+      canvas {
+        display: block;
+        width: 100% !important;
+        height: auto !important;
+        margin-bottom: 8px;
+      }
+    </style>
+  </head>
+
+  <body class="bg-black text-white font-sans text-sm">
+    <!-- Header -->
+    <div
+      class="text-center py-2 bg-gray-900 text-white text-xl font-bold shadow"
+    >
+      ⚡ Machine EMS Dashboard
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 px-2 py-2 bg-black">
+      <div class="bg-gray-800 text-white p-2 rounded-lg text-center shadow">
+        <div class="text-[11px] text-gray-400 font-medium">Live KWH</div>
+        <div
+          class="text-2xl font-bold text-blue-400 leading-tight"
+          id="liveKWH"
+        >
+          -
+        </div>
+      </div>
+      <div class="bg-gray-800 text-white p-2 rounded-lg text-center shadow">
+        <div class="text-[11px] text-gray-400 font-medium">
+          Live Day Power Cost
+        </div>
+        <div
+          class="text-2xl font-bold text-green-400 leading-tight"
+          id="liveCost"
+        >
+          -
+        </div>
+      </div>
+      <div class="bg-gray-800 text-white p-2 rounded-lg text-center shadow">
+        <div class="text-[11px] text-gray-400 font-medium">Yesterday KWH</div>
+        <div
+          class="text-2xl font-bold text-yellow-400 leading-tight"
+          id="yesterdayKWH"
+        >
+          -
+        </div>
+      </div>
+      <div class="bg-gray-800 text-white p-2 rounded-lg text-center shadow">
+        <div class="text-[11px] text-gray-400 font-medium">
+          Yesterday Power Cost
+        </div>
+        <div
+          class="text-2xl font-bold text-red-400 leading-tight"
+          id="yesterdayCost"
+        >
+          -
+        </div>
+      </div>
+    </div>
+
+    <!-- Machine Cards -->
+    <div
+      class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 px-2 py-1"
+      id="machineCards"
+    ></div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 px-2 py-2">
+      <div class="bg-gray-900 p-2 rounded shadow">
+        <h2 class="text-center font-semibold underline mb-2">Yesterday KWH</h2>
+        <canvas id="yesterdayKWHChart" class="h-[420px]"></canvas>
+      </div>
+      <div class="bg-gray-900 p-2 rounded shadow">
+        <h2 class="text-center font-semibold underline mb-2">
+          Yesterday Contribution (%)
+        </h2>
+        <canvas id="yesterdayContributionChart" class="h-[300px]"></canvas>
+      </div>
+    </div>
+
+    <script>
+      const API = (endpoint) => `http://127.0.0.1:1880/${endpoint}`;
+      const charts = {};
+
+      async function fetchAndRenderDashboard() {
+        try {
+          const [summary, liveMachines, yesterdayKWH, contribution] =
+            await Promise.all([
+              fetch(API("ems_summary")).then((r) => r.json()),
+              fetch(API("ems_live_kwh")).then((r) => r.json()),
+              fetch(API("ems_yesterday_kwh")).then((r) => r.json()),
+              fetch(API("ems_contribution")).then((r) => r.json()),
+            ]);
+
+          // Safe fallback in case data is missing
+          const getValue = (val, fallback = "-") =>
+            val !== undefined && val !== null ? val : fallback;
+
+          // Summary is an array, so access first item
+          const summaryData = Array.isArray(summary) ? summary[0] : {};
+
+          // Update Summary UI
+          document.getElementById("liveKWH").textContent = getValue(
+            summaryData.liveKWH
+          );
+          document.getElementById("liveCost").textContent = `INR ${getValue(
+            summaryData.liveCost
+          )}`;
+          document.getElementById("yesterdayKWH").textContent = getValue(
+            summaryData.yesterdayKWH
+          );
+          document.getElementById(
+            "yesterdayCost"
+          ).textContent = `INR ${getValue(summaryData.yesterdayCost)}`;
+
+          // Machine Cards
+          const container = document.getElementById("machineCards");
+          container.innerHTML = "";
+          liveMachines.forEach((m) => {
+            container.innerHTML += `
+            <div class="bg-gray-800 p-3 rounded-lg shadow text-center text-white">
+              <div class="text-sm font-semibold text-blue-400 mb-1">${m.machine}</div>
+              <div class="text-xs mb-0.5">Live KWH: <span class="font-bold text-green-400">${m.kwh}</span></div>
+              <div class="text-xs text-gray-400">Cost: <span class="text-yellow-400">INR ${m.cost}</span></div>
+            </div>`;
+          });
+
+          // Chart 1: Yesterday KWH (Horizontal Bar)
+          const yLabels = yesterdayKWH.map((d) => d.machine);
+          const yValues = yesterdayKWH.map((d) => d.kwh);
+          const ctx1 = document
+            .getElementById("yesterdayKWHChart")
+            .getContext("2d");
+          if (charts.kwh && typeof charts.kwh.destroy === "function")
+            charts.kwh.destroy();
+          charts.kwh = new Chart(ctx1, {
+            type: "bar",
+            data: {
+              labels: yLabels,
+              datasets: [
+                {
+                  label: "Yesterday KWH",
+                  data: yValues,
+                  backgroundColor: "#3b82f6",
+                  borderRadius: 4,
+                },
+              ],
+            },
+            options: {
+              indexAxis: "y",
+              animation: { duration: 800 },
+              plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: (ctx) => `KWH: ${ctx.raw}` } },
+                datalabels: {
+                  color: "#fff",
+                  anchor: "end",
+                  align: "right",
+                  font: { size: 10, weight: "bold" },
+                  formatter: (val) => val,
+                },
+              },
+              scales: {
+                x: { beginAtZero: true, ticks: { color: "#fff" } },
+                y: { ticks: { color: "#fff" } },
+              },
+            },
+            plugins: [ChartDataLabels],
+          });
+
+          // Chart 2: Yesterday Contribution %
+          const cLabels = contribution.map((d) => {
+            const date = new Date(d.date);
+            const day = String(date.getDate()).padStart(2, "0");
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            const year = String(date.getFullYear()).slice(-2);
+            return `${day}-${month}-${year}`;
+          });
+
+          const cValues = contribution.map((d) => d.percent);
+          const ctx2 = document
+            .getElementById("yesterdayContributionChart")
+            .getContext("2d");
+          if (
+            charts.contribution &&
+            typeof charts.contribution.destroy === "function"
+          )
+            charts.contribution.destroy();
+          charts.contribution = new Chart(ctx2, {
+            type: "line",
+            data: {
+              labels: cLabels,
+              datasets: [
+                {
+                  label: "Contribution %",
+                  data: cValues,
+                  borderColor: "#f97316",
+                  backgroundColor: "#f97316",
+                  tension: 0.4,
+                  pointRadius: 5,
+                  pointHoverRadius: 7,
+                  pointBackgroundColor: "#f97316",
+                  fill: false,
+                },
+              ],
+            },
+            options: {
+              animation: { duration: 800 },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: { label: (ctx) => `Contribution: ${ctx.raw}%` },
+                },
+                datalabels: {
+                  color: "#fff",
+                  anchor: "end",
+                  align: "top",
+                  font: { size: 10, weight: "bold" },
+                  formatter: (val) => `${val}%`,
+                },
+              },
+              scales: {
+                x: { ticks: { color: "#fff" } },
+                y: {
+                  beginAtZero: true,
+                  ticks: {
+                    color: "#fff",
+                    callback: (v) => `${v}%`,
+                  },
+                },
+              },
+            },
+            plugins: [ChartDataLabels],
+          });
+        } catch (err) {
+          console.error("Error loading EMS data", err);
+        }
+      }
+
+      fetchAndRenderDashboard();
+      setInterval(fetchAndRenderDashboard, 60000);
+    </script>
+  </body>
+</html>

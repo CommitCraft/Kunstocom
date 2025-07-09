@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Final Solid Gauges with 0 and 100 Labels Only</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Highcharts Libraries -->
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://code.highcharts.com/highcharts-more.js"></script>
+  <script src="https://code.highcharts.com/modules/solid-gauge.js"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-12 p-8 w-full max-w-7xl">
+    <div id="gauge1" class="h-[300px]"></div>
+    <div id="gauge2" class="h-[300px]"></div>
+    <div id="gauge3" class="h-[300px]"></div>
+  </div>
+
+  <script>
+    const gauges = [
+      { id: 'gauge1', value: 42, label: 'CPU Usage' },
+      { id: 'gauge2', value: 85, label: 'Memory Usage' },
+      { id: 'gauge3', value: 95, label: 'Disk Usage' }
+    ];
+
+    function getColor(value) {
+      if (value < 70) return '#FF4C4C'; // Red
+      if (value < 90) return '#FFD700'; // Yellow
+      return '#4CAF50'; // Green
+    }
+
+    function renderGauge(containerId, value, label) {
+      Highcharts.chart(containerId, {
+        chart: {
+          type: 'solidgauge',
+          height: '300px',
+          style: {
+            fontFamily: 'sans-serif'
+          }
+        },
+        title: {
+          text: label,
+          style: {
+            fontSize: '18px'
+          },
+          y: 15
+        },
+        pane: {
+          startAngle: -120,
+          endAngle: 120,
+          background: [
+            {
+              outerRadius: '102%',
+              innerRadius: '59%',
+              backgroundColor: '#EEE',
+              shape: 'arc'
+            }
+          ]
+        },
+        yAxis: {
+          min: 0,
+          max: 100,
+          stops: [
+            [0.7, '#FF4C4C'],
+            [0.9, '#FFD700'],
+            [1.0, '#4CAF50']
+          ],
+          lineWidth: 0,
+          tickWidth: 0,
+          minorTickInterval: null,
+          labels: {
+            distance: 20,
+            style: {
+              fontSize: '1.1em',
+              color: '#999'
+            },
+            formatter: function() {
+              if (this.value === 0 || this.value === 100) {
+                return this.value;
+              }
+              return '';
+            }
+          },
+          plotBands: [
+            { from: 0, to: 70, color: '#FF4C4C' },
+            { from: 70, to: 90, color: '#FFD700' },
+            { from: 90, to: 100, color: '#4CAF50' }
+          ]
+        },
+        series: [{
+          name: label,
+          data: [{
+            y: value,
+            radius: '90%',
+            innerRadius: '65%'
+          }],
+          dataLabels: {
+            borderWidth: 0,
+            padding: 0,
+            y: -20,
+            style: {
+              fontWeight: 'bold',
+              fontSize: '38px',
+              color: getColor(value)
+            },
+            format: '{y}%'
+          },
+          color: getColor(value)
+        }],
+        tooltip: {
+          enabled: false
+        },
+        credits: {
+          enabled: false
+        }
+      });
+    }
+
+    gauges.forEach(g => renderGauge(g.id, g.value, g.label));
+  </script>
+
+</body>
+</html>
