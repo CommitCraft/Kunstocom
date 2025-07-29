@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Real-Time Analysis Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-4">
+  <h1 class="text-3xl font-bold mb-6 text-center">Real-Time Model Test Dashboard</h1>
+
+  <!-- Top Tiles -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+    <div class="bg-blue-600 p-4 rounded shadow text-center">
+      <h2 class="text-lg">Model</h2>
+      <p id="modelName" class="text-2xl font-bold">U18A</p>
+    </div>
+    <div class="bg-green-600 p-4 rounded shadow text-center">
+      <h2 class="text-lg">Total Test</h2>
+      <p id="totalTest" class="text-2xl font-bold">0</p>
+    </div>
+    <div class="bg-green-700 p-4 rounded shadow text-center">
+      <h2 class="text-lg">Pass</h2>
+      <p id="passCount" class="text-2xl font-bold">0</p>
+    </div>
+    <div class="bg-red-600 p-4 rounded shadow text-center">
+      <h2 class="text-lg">Fail</h2>
+      <p id="failCount" class="text-2xl font-bold">0</p>
+    </div>
+    <div class="bg-yellow-500 p-4 rounded shadow text-center">
+      <h2 class="text-lg">Cycle Time (s)</h2>
+      <p id="cycleTime" class="text-2xl font-bold">0</p>
+    </div>
+  </div>
+
+  <!-- Charts Row -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+    <div class="bg-gray-800 p-4 rounded shadow">
+      <h2 class="text-xl font-semibold mb-2 text-center">Model Mix</h2>
+      <canvas id="modelMixChart"></canvas>
+    </div>
+    <div class="bg-gray-800 p-4 rounded shadow">
+      <h2 class="text-xl font-semibold mb-2 text-center">Line FOR</h2>
+      <canvas id="lineFORChart"></canvas>
+    </div>
+    <div class="bg-gray-800 p-4 rounded shadow">
+      <h2 class="text-xl font-semibold mb-2 text-center">Pareto</h2>
+      <canvas id="paretoChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    // Dummy data (replace via WebSocket/API)
+    const modelMixChart = new Chart(document.getElementById('modelMixChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['U18A', 'U19A', 'U18B'],
+        datasets: [{
+          label: 'Model Mix',
+          data: [40, 30, 30],
+          backgroundColor: ['#3b82f6', '#10b981', '#f59e0b']
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: '#fff' }
+          }
+        }
+      }
+    });
+
+    const lineFORChart = new Chart(document.getElementById('lineFORChart'), {
+      type: 'bar',
+      data: {
+        labels: ['Line 1', 'Line 2', 'Line 3'],
+        datasets: [{
+          label: 'FOR %',
+          data: [95, 88, 78],
+          backgroundColor: '#34d399'
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+        },
+        scales: {
+          x: { ticks: { color: '#fff' } },
+          y: {
+            beginAtZero: true,
+            ticks: { color: '#fff', stepSize: 10 },
+            max: 100
+          }
+        }
+      }
+    });
+
+    const paretoChart = new Chart(document.getElementById('paretoChart'), {
+      type: 'bar',
+      data: {
+        labels: ['HV Fail', 'IR Fail', 'LC Fail', 'ECR Fail'],
+        datasets: [{
+          label: 'Count',
+          data: [25, 18, 12, 8],
+          backgroundColor: '#f87171'
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+        },
+        scales: {
+          x: { ticks: { color: '#fff' } },
+          y: {
+            beginAtZero: true,
+            ticks: { color: '#fff', stepSize: 5 }
+          }
+        }
+      }
+    });
+
+    // Placeholder: Use WebSocket or fetch to update tiles
+    function updateTiles(data) {
+      document.getElementById('modelName').textContent = data.model;
+      document.getElementById('totalTest').textContent = data.total;
+      document.getElementById('passCount').textContent = data.pass;
+      document.getElementById('failCount').textContent = data.fail;
+      document.getElementById('cycleTime').textContent = data.ct;
+    }
+
+    // Example update every 3 seconds
+    setInterval(() => {
+      // Replace this block with live WebSocket or API data fetch
+      updateTiles({ model: 'U18A', total: 100, pass: 90, fail: 10, ct: 54 });
+    }, 3000);
+  </script>
+</body>
+</html>

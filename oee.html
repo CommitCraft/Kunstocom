@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Log Book Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
+
+
+  </head>
+  <body class="bg-gray-50 p-6 font-sans text-gray-800">
+    <div class="max-w-screen-xl mx-auto shadow-lg rounded-lg bg-white p-6">
+      <div
+        class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6"
+      >
+        <h1 class="text-3xl font-semibold text-blue-800">Log Book Dashboard</h1>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-4 mb-6">
+        <input
+          type="text"
+          id="searchInput"
+          onkeyup="searchTable()"
+          placeholder="Search..."
+          class="flex-grow min-w-[180px] border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
+        />
+
+        <label class="flex flex-col text-sm text-gray-600">
+          From Date
+          <input
+            type="date"
+            id="fromDate"
+            class="border border-gray-300 rounded-md px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-green-400"
+          />
+        </label>
+
+        <label class="flex flex-col text-sm text-gray-600">
+          To Date
+          <input
+            type="date"
+            id="toDate"
+            class="border border-gray-300 rounded-md px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-green-400"
+          />
+        </label>
+
+        <button
+          onclick="applyFilters()"
+          class="bg-blue-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-md shadow-md transition duration-200"
+        >
+          Apply Filter
+        </button>
+        <button
+          onclick="exportToExcel()"
+          class="bg-blue-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-md shadow-md transition duration-200"
+        >
+          Export Excel
+        </button>
+      </div>
+
+      <div class="overflow-x-auto rounded-md border border-gray-200 shadow-sm">
+        <table
+          id="dataTable"
+          class="min-w-full divide-y divide-gray-200 table-auto"
+        >
+          <thead class="bg-blue-100 text-blue-900 font-semibold">
+            <tr>
+              <th class="px-4 py-3 text-left">Timestamp</th>
+              <th class="px-4 py-3 text-left">Product SN</th>
+        
+              <th class="px-4 py-3 text-left">ECR Status</th>
+              <th class="px-4 py-3 text-left">HV Status</th>
+              <th class="px-4 py-3 text-left">IR Status</th>
+              <th class="px-4 py-3 text-left">LC Status</th>
+              <th class="px-4 py-3 text-left">S1 Volt</th>
+              <th class="px-4 py-3 text-left">S1 Current</th>
+              <th class="px-4 py-3 text-left">Power S1</th>
+              <th class="px-4 py-3 text-left">S1 Status</th>
+
+              <th class="px-4 py-3 text-left">Final Judge</th>
+            </tr>
+          </thead>
+          <tbody
+            id="tableBody"
+            class="bg-white divide-y divide-gray-100"
+          ></tbody>
+        </table>
+      </div>
+      <div class="mt-4 text-gray-600 text-sm text-center" id="pagination"></div>
+    </div>
+
+    <script>
+      const pageSize = 20;
+      let currentPage = 1;
+      let originalData = [];
+      let filteredData = [];
+
+      function formatIST(dateStr) {
+        const date = new Date(dateStr);
+        return date.toLocaleString("en-IN", {
+          timeZone: "Asia/Kolkata",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        });
+      }
+
+      async function fetchData() {
+        try {
+          const res = await fetch("http://127.0.0.1:1880/testdata");
+          const json = await res.json();
+          originalData = json.map((item) => ({
+            Timestamp: formatIST(item.timeStamp),
+            rawTimestamp: item.timeStamp,
+            "Product SN": item.productSerialNumber || "-",
+           
+            "ECR Status": item.ecrStatus || "-",
+            "HV Status": item.hvStatus || "-",
+            "IR Status": item.irStatus || "-",
+            "LC Status": item.lcStatus || "-",
+            "S1 Volt": item.s1Volt || "-",
+            "S1 Current": item.s1Current || "-",
+            "Power S1": item.powerS1 || "-",
+            "S1 Status": item.s1Status || "-",
+
+            "Final Judge": item.finalJudge || "_",
+          }));
+
+          filteredData = [...originalData];
+          currentPage = 1;
+          renderTable();
+        } catch (err) {
+          console.error("Fetch error:", err);
+        }
+      }
+
+      function renderTable() {
+        const tbody = document.getElementById("tableBody");
+        const start = (currentPage - 1) * pageSize;
+        const paginated = filteredData.slice(start, start + pageSize);
+
+        tbody.innerHTML = "";
+        paginated.forEach((row) => {
+          const tr = document.createElement("tr");
+          // Alternate row colors
+          tr.className =
+            paginated.indexOf(row) % 2 === 0 ? "bg-white" : "bg-blue-50";
+
+          for (const key in row) {
+            if (key === "rawTimestamp") continue;
+            const td = document.createElement("td");
+            td.className =
+              "px-4 py-2 whitespace-nowrap text-left text-gray-700";
+            td.textContent = row[key];
+            tr.appendChild(td);
+          }
+          tbody.appendChild(tr);
+        });
+        updatePagination();
+      }
+
+      function updatePagination() {
+        const totalPages = Math.ceil(filteredData.length / pageSize);
+        document.getElementById("pagination").innerHTML =
+          `Page ${currentPage} of ${totalPages} ` +
+          (currentPage > 1
+            ? `<button onclick="changePage(${
+                currentPage - 1
+              })" class="text-green-700 hover:underline ml-2">Prev</button>`
+            : "") +
+          (currentPage < totalPages
+            ? ` <button onclick="changePage(${
+                currentPage + 1
+              })" class="text-green-700 hover:underline ml-2">Next</button>`
+            : "");
+      }
+
+      function changePage(page) {
+        currentPage = page;
+        renderTable();
+      }
+
+      function searchTable() {
+        const input = document
+          .getElementById("searchInput")
+          .value.toLowerCase();
+        filteredData = originalData.filter((row) =>
+          Object.values(row).some((val) =>
+            String(val).toLowerCase().includes(input)
+          )
+        );
+        currentPage = 1;
+        renderTable();
+      }
+
+      function applyFilters() {
+        const fromDateValue = document.getElementById("fromDate").value;
+        const toDateValue = document.getElementById("toDate").value;
+
+        if (!fromDateValue && !toDateValue) {
+          filteredData = [...originalData];
+        } else {
+          const from = fromDateValue ? new Date(fromDateValue) : null;
+          const to = toDateValue
+            ? new Date(new Date(toDateValue).getTime() + 86400000)
+            : null;
+
+          filteredData = originalData.filter((row) => {
+            const date = new Date(row.rawTimestamp);
+            if (from && date < from) return false;
+            if (to && date >= to) return false;
+            return true;
+          });
+        }
+
+        // Apply current search filter as well
+        const searchInput = document
+          .getElementById("searchInput")
+          .value.toLowerCase();
+        if (searchInput) {
+          filteredData = filteredData.filter((row) =>
+            Object.values(row).some((val) =>
+              String(val).toLowerCase().includes(searchInput)
+            )
+          );
+        }
+
+        currentPage = 1;
+        renderTable();
+      }
+      function exportToExcel() {
+  const headers = [
+    "Timestamp", "Product SN", "ECR Status",
+    "HV Status", "IR Status", "LC Status", "S1 Volt", "S1 Current",
+    "Power S1", "S1 Status", "Final Judge"
+  ];
+
+  const data = [
+    headers,
+    ...filteredData.map(row => headers.map(h => row[h] ?? "-"))
+  ];
+
+  const worksheet = XLSX.utils.aoa_to_sheet(data);
+
+  // --- Blue Theme Styling ---
+  const headerColor = "2563EB"; // Tailwind blue-600
+  const stripeColor = "DBEAFE"; // Tailwind blue-100
+  const textColor = "1E3A8A";   // Tailwind blue-900
+
+  // Apply header styles
+  headers.forEach((_, colIdx) => {
+    const cellAddr = XLSX.utils.encode_cell({ r: 0, c: colIdx });
+    const cell = worksheet[cellAddr];
+    if (cell) {
+      cell.s = {
+        font: { bold: true, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: headerColor } },
+        alignment: { horizontal: "center", vertical: "center" },
+        border: {
+          top: { style: "thin", color: { rgb: "FFFFFF" } },
+          bottom: { style: "thin", color: { rgb: "FFFFFF" } }
+        }
+      };
+    }
+  });
+
+  // Apply styles to data rows
+  for (let r = 1; r < data.length; r++) {
+    for (let c = 0; c < headers.length; c++) {
+      const cellAddr = XLSX.utils.encode_cell({ r, c });
+      const cell = worksheet[cellAddr];
+      if (cell) {
+        cell.s = {
+          font: { color: { rgb: textColor } },
+          alignment: { vertical: "center", horizontal: "left" },
+          fill: r % 2 === 1 ? { fgColor: { rgb: stripeColor } } : undefined,
+          border: {
+            bottom: { style: "thin", color: { rgb: "CCCCCC" } }
+          }
+        };
+      }
+    }
+  }
+
+  // Set column widths
+  worksheet['!cols'] = headers.map(h => ({ wch: Math.max(15, h.length + 4) }));
+
+  // Freeze top row
+  worksheet['!freeze'] = { ySplit: 1 };
+
+  // Enable filter on top row
+  worksheet['!autofilter'] = {
+    ref: XLSX.utils.encode_range({
+      s: { r: 0, c: 0 },
+      e: { r: 0, c: headers.length - 1 }
+    })
+  };
+
+  // Create workbook and add sheets
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Log Book");
+
+  // Optional: Add Metadata sheet if defined
+  if (typeof metadataSheet !== "undefined") {
+    XLSX.utils.book_append_sheet(workbook, metadataSheet, "Metadata");
+  }
+
+  // Export to file
+  XLSX.writeFile(workbook, "Log_Book.xlsx");
+}
+
+      fetchData();
+      setInterval(fetchData, 60000);
+    </script>
+  </body>
+</html>
+

@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-green-50 text-gray-800">
+
+  <!-- Login Form -->
+  <div id="loginForm" class="min-h-screen flex items-center justify-center bg-green-100">
+    <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-sm">
+      <h2 class="text-xl font-bold mb-4 text-green-700">Login</h2>
+      <input id="username" type="text" placeholder="Username" class="w-full mb-3 px-4 py-2 border rounded" />
+      <input id="password" type="password" placeholder="Password" class="w-full mb-3 px-4 py-2 border rounded" />
+      <button onclick="login()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded w-full">Login</button>
+    </div>
+  </div>
+
+  <!-- Admin Dashboard -->
+  <div id="dashboard" class="hidden min-h-screen flex">
+
+    <!-- Sidebar -->
+    <div class="w-64 bg-green-200 p-4 space-y-4 shadow-lg flex flex-col">
+      <h2 class="text-2xl font-bold text-green-800 mb-6">Admin Panel</h2>
+      <button onclick="showSection('roles')" class="w-full text-left px-3 py-2 bg-green-300 rounded hover:bg-green-400">Roles</button>
+      <button onclick="showSection('pages')" class="w-full text-left px-3 py-2 bg-green-300 rounded hover:bg-green-400">Pages</button>
+      <button onclick="showSection('users')" class="w-full text-left px-3 py-2 bg-green-300 rounded hover:bg-green-400">Users</button>
+      <button onclick="logout()" class="mt-auto w-full text-left px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600">Logout</button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-6 space-y-6 overflow-auto">
+
+      <!-- ROLES -->
+      <section id="roles" class="hidden max-w-5xl mx-auto">
+        <h2 class="text-3xl font-bold mb-4 border-b border-green-400 pb-2">Manage Roles</h2>
+        <form id="add-role-form" class="flex space-x-3 mb-6 max-w-md">
+          <input id="roleName" placeholder="Role name" required
+            class="flex-grow border border-gray-300 rounded px-3 py-2 focus:outline-green-500" />
+          <button type="submit" class="bg-green-600 text-white px-5 rounded hover:bg-green-700 transition duration-300">Add Role</button>
+        </form>
+        <ul id="roleList" class="space-y-2"></ul>
+      </section>
+
+      <!-- PAGES -->
+      <section id="pages" class="hidden max-w-5xl mx-auto">
+        <h2 class="text-3xl font-bold mb-4 border-b border-green-400 pb-2">Manage Pages</h2>
+        <form id="add-page-form" class="flex space-x-3 mb-6 max-w-md">
+          <input id="pageName" placeholder="Page name" required
+            class="flex-grow border border-gray-300 rounded px-3 py-2 focus:outline-green-500" />
+          <input id="pageUrl" placeholder="Page URL" required
+            class="flex-grow border border-gray-300 rounded px-3 py-2 focus:outline-green-500" />
+          <button type="submit" class="bg-green-600 text-white px-5 rounded hover:bg-green-700 transition duration-300">Add Page</button>
+        </form>
+
+        <table class="w-full max-w-6xl border border-gray-300 rounded text-left">
+          <thead class="bg-green-100">
+            <tr>
+              <th class="px-4 py-2 border-b border-green-300">ID</th>
+              <th class="px-4 py-2 border-b border-green-300">Page Name</th>
+              <th class="px-4 py-2 border-b border-green-300">URL</th>
+              <th class="px-4 py-2 border-b border-green-300">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="pages-table-body" class="bg-white"></tbody>
+        </table>
+      </section>
+
+      <!-- USERS -->
+      <section id="users" class="hidden max-w-6xl mx-auto">
+        <h2 class="text-3xl font-bold mb-4 border-b border-green-400 pb-2">Manage Users</h2>
+        <form id="add-user-form" class="flex flex-col space-y-4 mb-6 max-w-5xl">
+
+          <div class="flex flex-wrap space-x-3">
+            <input id="user-username" type="text" placeholder="Username" required
+              class="flex-grow min-w-[140px] border border-gray-300 rounded px-3 py-2 focus:outline-green-500" />
+            <input id="user-password" type="password" placeholder="Password"
+              class="flex-grow min-w-[140px] border border-gray-300 rounded px-3 py-2 focus:outline-green-500" />
+            <select id="user-role" required
+              class="border border-gray-300 rounded px-3 py-2 min-w-[140px] focus:outline-green-500"></select>
+          </div>
+
+          <div>
+            <label class="block mb-1 font-semibold text-green-700">Assign Pages:</label>
+            <div id="user-pages"
+              class="flex flex-wrap gap-4 max-w-4xl border border-gray-300 rounded p-3 bg-white"
+              style="max-height: 150px; overflow-y: auto;">
+              <!-- Page checkboxes inserted here -->
+            </div>
+          </div>
+
+          <div class="flex space-x-3">
+            <button type="submit" id="userAddBtn"
+              class="bg-green-600 text-white px-5 rounded hover:bg-green-700 transition duration-300">Add User</button>
+            <button type="button" id="userUpdateBtn"
+              class="bg-yellow-500 text-white px-5 rounded hover:bg-yellow-600 transition duration-300 hidden">Update User</button>
+            <button type="button" id="userCancelBtn"
+              class="bg-gray-400 text-white px-5 rounded hover:bg-gray-500 transition duration-300 hidden">Cancel</button>
+          </div>
+        </form>
+
+        <table class="w-full max-w-6xl border border-gray-300 rounded text-left">
+          <thead class="bg-green-100">
+            <tr>
+              <th class="px-4 py-2 border-b border-green-300">ID</th>
+              <th class="px-4 py-2 border-b border-green-300">Username</th>
+              <th class="px-4 py-2 border-b border-green-300">Role</th>
+              <th class="px-4 py-2 border-b border-green-300">Pages Assigned</th>
+              <th class="px-4 py-2 border-b border-green-300">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="users-table-body" class="bg-white"></tbody>
+        </table>
+      </section>
+
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://127.0.0.1:1880/api';
+
+    let allPages = [];
+    let editUserId = null;
+
+    // On load: check login
+    window.onload = () => {
+      if (localStorage.getItem('user')) {
+        showDashboard();
+      } else {
+        showLogin();
+      }
+    };
+
+    function showLogin() {
+      document.getElementById('loginForm').style.display = 'flex';
+      document.getElementById('dashboard').classList.add('hidden');
+    }
+
+    function showDashboard() {
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('dashboard').classList.remove('hidden');
+      showSection('roles');
+      loadRoles();
+      loadPages();
+      loadUsers();
+    }
+
+    // LOGIN
+    async function login() {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value.trim();
+
+      if (!username || !password) {
+        alert('Please fill all fields');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.message || 'Login failed');
+
+        localStorage.setItem('user', JSON.stringify(data));
+        showDashboard();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('user');
+      showLogin();
+      clearUserForm();
+    }
+
+    // SHOW SECTION
+    function showSection(sectionId) {
+      ['roles', 'pages', 'users'].forEach(id => {
+        document.getElementById(id).style.display = id === sectionId ? 'block' : 'none';
+      });
+    }
+
+    // -------- ROLES --------
+    async function loadRoles() {
+      try {
+        const res = await fetch(`${API_BASE}/roles`);
+        if (!res.ok) throw new Error('Failed to load roles');
+        const roles = await res.json();
+
+        const list = document.getElementById('roleList');
+        list.innerHTML = '';
+        roles.forEach(r => {
+          const li = document.createElement('li');
+          li.className = 'bg-white p-3 rounded shadow flex justify-between items-center';
+
+          li.innerHTML = `
+            <span>${escapeHtml(r.name)}</span>
+            <button onclick="deleteRole(${r.id})" class="text-red-600 hover:underline">Delete</button>
+          `;
+          list.appendChild(li);
+        });
+
+        // Also populate user-role select
+        const roleSelect = document.getElementById('user-role');
+        roleSelect.innerHTML = '<option value="">Select role</option>';
+        roles.forEach(r => {
+          const option = document.createElement('option');
+          option.value = r.id;
+          option.textContent = r.name;
+          roleSelect.appendChild(option);
+        });
+
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function addRole(e) {
+      e.preventDefault();
+      const name = document.getElementById('roleName').value.trim();
+      if (!name) return alert('Role name required');
+
+      try {
+        const res = await fetch(`${API_BASE}/roles`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        if (!res.ok) throw new Error('Failed to add role');
+        document.getElementById('roleName').value = '';
+        loadRoles();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function deleteRole(id) {
+      if (!confirm('Delete role?')) return;
+      try {
+        const res = await fetch(`${API_BASE}/roles/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete role');
+        loadRoles();
+        loadUsers(); // reload users to reflect role changes
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    document.getElementById('add-role-form').addEventListener('submit', addRole);
+
+    // -------- PAGES --------
+    async function loadPages() {
+      try {
+        const res = await fetch(`${API_BASE}/pages`);
+        if (!res.ok) throw new Error('Failed to load pages');
+        const pages = await res.json();
+
+        allPages = pages;
+
+        // Render pages table
+        const tbody = document.getElementById('pages-table-body');
+        tbody.innerHTML = '';
+        pages.forEach(p => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="border px-4 py-2">${p.id}</td>
+            <td class="border px-4 py-2">${escapeHtml(p.name)}</td>
+            <td class="border px-4 py-2">${escapeHtml(p.url)}</td>
+            <td class="border px-4 py-2">
+              <button onclick="deletePage(${p.id})" class="text-red-600 hover:underline">Delete</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        // Render pages checkboxes in user form
+        renderPageCheckboxes();
+
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function addPage(e) {
+      e.preventDefault();
+      const name = document.getElementById('pageName').value.trim();
+      const url = document.getElementById('pageUrl').value.trim();
+      if (!name || !url) return alert('Page name and URL required');
+
+      try {
+        const res = await fetch(`${API_BASE}/pages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, url })
+        });
+        if (!res.ok) throw new Error('Failed to add page');
+        document.getElementById('pageName').value = '';
+        document.getElementById('pageUrl').value = '';
+        loadPages();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function deletePage(id) {
+      if (!confirm('Delete page?')) return;
+      try {
+        const res = await fetch(`${API_BASE}/pages/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete page');
+        loadPages();
+        loadUsers(); // reload users to reflect page changes
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    document.getElementById('add-page-form').addEventListener('submit', addPage);
+
+    // Render page checkboxes for user assign
+    function renderPageCheckboxes() {
+      const container = document.getElementById('user-pages');
+      container.innerHTML = '';
+      allPages.forEach(page => {
+        const checkboxId = `page-checkbox-${page.id}`;
+        const label = document.createElement('label');
+        label.className = 'inline-flex items-center space-x-2 cursor-pointer select-none';
+
+        label.innerHTML = `
+          <input type="checkbox" id="${checkboxId}" name="userPages" value="${page.id}" class="rounded border-gray-300 text-green-600 focus:ring-green-500" />
+          <span>${escapeHtml(page.name)}</span>
+        `;
+
+        container.appendChild(label);
+      });
+    }
+
+    // -------- USERS --------
+    async function loadUsers() {
+      try {
+        const res = await fetch(`${API_BASE}/users`);
+        if (!res.ok) throw new Error('Failed to load users');
+        const users = await res.json();
+
+        const tbody = document.getElementById('users-table-body');
+        tbody.innerHTML = '';
+
+        users.forEach(u => {
+          // u.pages expected as array of objects {id, name}
+          const pagesNames = u.pages?.map(p => p.name).join(', ') || '';
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="border px-4 py-2">${u.id}</td>
+            <td class="border px-4 py-2">${escapeHtml(u.username)}</td>
+            <td class="border px-4 py-2">${escapeHtml(u.role)}</td>
+            <td class="border px-4 py-2">${escapeHtml(pagesNames)}</td>
+            <td class="border px-4 py-2 space-x-2">
+              <button onclick="startEditUser(${u.id}, '${escapeJs(u.username)}', ${u.role_id}, ${JSON.stringify(u.pages)})" class="text-yellow-600 hover:underline">Edit</button>
+              <button onclick="deleteUser(${u.id})" class="text-red-600 hover:underline">Delete</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function clearUserForm() {
+      document.getElementById('user-username').value = '';
+      document.getElementById('user-password').value = '';
+      document.getElementById('user-role').value = '';
+      setSelectedPageIds([]);
+      editUserId = null;
+      toggleUserButtons(false);
+    }
+
+    function toggleUserButtons(editing) {
+      document.getElementById('userAddBtn').style.display = editing ? 'none' : 'inline-block';
+      document.getElementById('userUpdateBtn').style.display = editing ? 'inline-block' : 'none';
+      document.getElementById('userCancelBtn').style.display = editing ? 'inline-block' : 'none';
+    }
+
+    // Escape for JS string inside ' '
+    function escapeJs(str) {
+      return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
+    }
+
+    // Escape HTML for text content
+    function escapeHtml(text) {
+      if (!text) return '';
+      return text.replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // User add/update handlers
+    document.getElementById('add-user-form').addEventListener('submit', addUser);
+    document.getElementById('userUpdateBtn').addEventListener('click', updateUser);
+    document.getElementById('userCancelBtn').addEventListener('click', cancelUserEdit);
+
+    async function addUser(e) {
+      e.preventDefault();
+      if (editUserId) return;
+
+      const username = document.getElementById('user-username').value.trim();
+      const password = document.getElementById('user-password').value.trim();
+      const role_id = document.getElementById('user-role').value;
+      const page_ids = getSelectedPageIds();
+
+      if (!username || !password || !role_id) {
+        alert('Please fill username, password and role');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, role_id, page_ids })
+        });
+        if (!res.ok) throw new Error('Failed to add user');
+        clearUserForm();
+        loadUsers();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function getSelectedPageIds() {
+      const checkedBoxes = [...document.querySelectorAll('#user-pages input[type=checkbox]:checked')];
+      return checkedBoxes.map(cb => parseInt(cb.value));
+    }
+
+    function setSelectedPageIds(selectedPages) {
+      const selectedIds = selectedPages.map(p => (typeof p === 'object' ? p.id : p));
+      const checkboxes = document.querySelectorAll('#user-pages input[type=checkbox]');
+      checkboxes.forEach(cb => {
+        cb.checked = selectedIds.includes(parseInt(cb.value));
+      });
+    }
+
+    function startEditUser(id, username, role_id, pages) {
+      editUserId = id;
+      document.getElementById('user-username').value = username;
+      document.getElementById('user-password').value = '';
+      document.getElementById('user-role').value = role_id;
+
+      setSelectedPageIds(pages || []);
+
+      toggleUserButtons(true);
+      showSection('users');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function updateUser() {
+      if (!editUserId) return;
+
+      const username = document.getElementById('user-username').value.trim();
+      const password = document.getElementById('user-password').value.trim();
+      const role_id = document.getElementById('user-role').value;
+      const page_ids = getSelectedPageIds();
+
+      if (!username || !role_id) {
+        alert('Username and role required');
+        return;
+      }
+
+      try {
+        const body = { username, role_id, page_ids };
+        if (password) body.password = password;
+
+        const res = await fetch(`${API_BASE}/users/${editUserId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error('Failed to update user');
+
+        cancelUserEdit();
+        loadUsers();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function cancelUserEdit() {
+      clearUserForm();
+    }
+
+    async function deleteUser(id) {
+      if (!confirm('Delete user?')) return;
+      try {
+        const res = await fetch(`${API_BASE}/users/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete user');
+        loadUsers();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+  </script>
+</body>
+</html>

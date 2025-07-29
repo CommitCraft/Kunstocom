@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Manage Roles</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-6">
+  <div class="max-w-3xl mx-auto bg-white p-6 rounded shadow">
+    <h2 class="text-2xl font-bold mb-4 border-b pb-2">Manage Roles & Assign Pages</h2>
+
+    <!-- Add/Edit Role Form -->
+    <form id="add-role-form" class="space-y-4 mb-6">
+      <input type="hidden" id="roleId" />
+      <div>
+        <label class="block font-semibold mb-1">Role Name</label>
+        <input id="roleName" placeholder="Enter role name"
+          class="w-full px-4 py-2 border rounded focus:outline-none focus:ring focus:ring-green-400" />
+      </div>
+      <div>
+        <label class="block font-semibold mb-1">Assign Pages</label>
+        <select id="pageSelect" multiple
+          class="w-full h-32 border rounded px-3 py-2 focus:outline-none focus:ring focus:ring-green-400"></select>
+      </div>
+      <div class="flex gap-2">
+        <button class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Save Role</button>
+        <button type="button" onclick="resetForm()" class="text-gray-500 underline">Cancel</button>
+      </div>
+    </form>
+
+    <!-- Role List -->
+    <ul id="roleList" class="space-y-3"></ul>
+  </div>
+
+  <script>
+    const API_BASE = 'http://127.0.0.1:1880/api';
+
+    document.getElementById('add-role-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const id = document.getElementById('roleId').value;
+      const name = document.getElementById('roleName').value.trim();
+      const page_ids = Array.from(document.getElementById('pageSelect').selectedOptions).map(opt => parseInt(opt.value));
+
+      if (!name || page_ids.length === 0) return alert("Role name and at least one page required.");
+
+      const method = id ? 'PUT' : 'POST';
+      const url = id ? `${API_BASE}/roles/${id}` : `${API_BASE}/roles`;
+
+      await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, page_ids })
+      });
+
+      resetForm();
+      loadRoles();
+    });
+
+    function resetForm() {
+      document.getElementById('roleId').value = '';
+      document.getElementById('roleName').value = '';
+      document.getElementById('pageSelect').selectedIndex = -1;
+    }
+
+    async function loadPages() {
+      const res = await fetch(`${API_BASE}/pages`);
+      const pages = await res.json();
+      const select = document.getElementById('pageSelect');
+      select.innerHTML = '';
+      pages.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name;
+        select.appendChild(opt);
+      });
+    }
+
+    async function loadRoles() {
+      const res = await fetch(`${API_BASE}/roles`);
+      const roles = await res.json();
+      const list = document.getElementById('roleList');
+      list.innerHTML = '';
+
+      roles.forEach(role => {
+        const li = document.createElement('li');
+        li.className = 'bg-gray-50 p-4 rounded shadow flex justify-between items-start';
+        li.innerHTML = `
+          <div>
+            <div class="font-semibold text-lg">${role.role_name}</div>
+            <div class="text-sm text-gray-600 mt-1">
+              Pages: ${role.pages && role.pages.length ? role.pages.map(p => `<span class="bg-green-100 text-green-800 px-2 py-1 rounded mr-1">${p.page_name}</span>`).join('') : '—'}
+            </div>
+          </div>
+          <div class="flex flex-col gap-1">
+            <button onclick='editRole(${JSON.stringify(role)})' class="text-blue-600 hover:underline">Edit</button>
+            <button onclick="deleteRole(${role.id})" class="text-red-600 hover:underline">Delete</button>
+          </div>
+        `;
+        list.appendChild(li);
+      });
+    }
+
+    function editRole(role) {
+      document.getElementById('roleId').value = role.id;
+      document.getElementById('roleName').value = role.role_name;
+
+      const select = document.getElementById('pageSelect');
+      Array.from(select.options).forEach(option => {
+        option.selected = role.pages.some(p => p.id == option.value);
+      });
+    }
+
+    async function deleteRole(id) {
+      if (!confirm('Delete this role?')) return;
+      await fetch(`${API_BASE}/roles/${id}`, { method: 'DELETE' });
+      loadRoles();
+    }
+
+    loadPages();
+    loadRoles();
+  </script>
+</body>
+</html>

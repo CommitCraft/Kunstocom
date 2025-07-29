@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Saral Tech Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      /* Modal and collapse styles for Model Master */
+      #form-modal {
+        transition: opacity 0.3s ease;
+      }
+      #form-modal.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .collapse-header {
+        cursor: pointer;
+      }
+      .collapse-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+      }
+      .collapse-content.open {
+        max-height: 500px;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #3b82f6;
+        border-radius: 50%;
+        width: 18px;
+        height: 18px;
+        animation: spin 1s linear infinite;
+        display: inline-block;
+        vertical-align: middle;
+        margin-left: 8px;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      .chart-container {
+        position: relative;
+        height: 340px;
+        width: 100%;
+      }
+      canvas {
+        width: 100% !important;
+        height: 90% !important;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 min-h-screen font-sans text-gray-800">
+    <!-- Layout -->
+    <div class="flex h-screen">
+      <!-- Sidebar -->
+      <aside class="w-64 bg-white shadow-lg p-4">
+        <h2 class="text-xl font-bold mb-6 text-green-600">
+          Saral Technologies
+        </h2>
+
+        <nav class="space-y-2">
+          <button
+            onclick="showSection('dashboard')"
+            class="w-full text-left px-4 py-2 rounded hover:bg-green-100"
+          >
+            Dashboard
+          </button>
+          <button
+            onclick="showSection('modelmaster')"
+            class="w-full text-left px-4 py-2 rounded hover:bg-green-100"
+          >
+            Model Master
+          </button>
+          <button
+            onclick="showSection('logbook')"
+            class="w-full text-left px-4 py-2 rounded hover:bg-green-100"
+          >
+            Log Book
+          </button>
+          <!-- <button onclick="logout()" class="w-full text-left px-4 py-2 text-red-600 hover:bg-red-100">Logout</button> -->
+        </nav>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="flex-1 overflow-y-auto p-6 bg-gray-50">
+        <section id="dashboard" class="mx-auto bg-white p-6 rounded shadow">
+          <iframe
+            src="http://127.0.0.1:1880/analise"
+            class="w-full h-[600px] border-0 rounded-lg shadow"
+          ></iframe>
+        </section>
+
+        <!-- Model Master Section -->
+        <section
+          id="modelmaster"
+          class="hidden max-w-screen-xl mx-auto bg-white p-6 rounded shadow"
+        >
+          <iframe
+            src="http://127.0.0.1:1880/modelmarsterData"
+            class="w-full h-[600px] border-0 rounded-lg shadow"
+          ></iframe>
+        </section>
+
+        <!-- Log Book Section -->
+        <section
+          id="logbook"
+          class="hidden max-w-screen-xl mx-auto shadow-lg rounded-lg bg-white p-6"
+        >
+          <iframe
+            src="http://127.0.0.1:1880/log_book"
+            class="w-full h-[600px] border-0 rounded-lg shadow"
+          ></iframe>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      // --- SPA Section Switching ---
+      function showSection(id) {
+        ["modelmaster", "logbook", "dashboard"].forEach((s) => {
+          const el = document.getElementById(s);
+          if (el) {
+            el.classList.toggle("hidden", s !== id);
+          }
+        });
+      }
+
+      // Logout placeholder
+      function logout() {
+        alert("Logged out (demo). Implement your logout logic.");
+        location.reload();
+      }
+    </script>
+  </body>
+</html>

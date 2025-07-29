@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Real-Time Model Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/moment"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white font-sans">
+
+  <!-- Header -->
+  <div class="relative bg-gray-800 shadow-md py-2 text-white">
+    <div class="absolute left-4 -translate-y-1/2 text-base md:text-lg text-white leading-tight">
+      Westan Appliances<br />Sonipat, Haryana
+    </div>
+    <div class="text-center">
+      <h1 class="text-2xl md:text-3xl font-bold text-white">Line: Toaster L-1</h1>
+      <div id="currentTime" class="text-base md:text-lg text-gray-100 mt-1"></div>
+    </div>
+    <div class="absolute right-4 top-1/2 -translate-y-1/2 text-base md:text-lg font-semibold text-green-400">
+      Saral Technology
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-2 p-2">
+    <div class="bg-gray-800 p-2 rounded-lg text-center">
+      <p class="text-gray-300 text-base">Model</p>
+      <p id="modelName" class="text-2xl font-bold text-white">-</p>
+    </div>
+    <div class="bg-gray-800 p-2 rounded-lg text-center">
+      <p class="text-gray-300 text-base">Total Test</p>
+      <p id="totalTest" class="text-2xl font-bold text-white">-</p>
+    </div>
+    <div class="bg-gray-800 p-2 rounded-lg text-center">
+      <p class="text-gray-300 text-base">Pass</p>
+      <p id="passCount" class="text-2xl font-bold text-green-400">-</p>
+    </div>
+    <div class="bg-gray-800 p-2 rounded-lg text-center">
+      <p class="text-gray-300 text-base">Fail</p>
+      <p id="failCount" class="text-2xl font-bold text-red-400">-</p>
+    </div>
+    <div class="bg-gray-800 p-2 rounded-lg text-center">
+      <p class="text-gray-300 text-base">Cycle Time</p>
+      <p id="cycleTime" class="text-2xl font-bold text-white">-</p>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 px-4">
+    <div class="bg-gray-800 p-4 rounded-lg">
+      <h2 class="text-xl font-bold mb-2 text-white">Model Mix</h2>
+      <canvas id="modelMixChart" class="w-full h-32"></canvas>
+    </div>
+    <div class="flex flex-col gap-4">
+      <div class="bg-gray-800 p-4 rounded-lg">
+        <h2 class="text-xl font-bold mb-2 text-white">Hourly Test Results</h2>
+        <canvas id="lineChart" class="w-full h-32"></canvas>
+      </div>
+      <div class="bg-gray-800 p-4 rounded-lg">
+        <h2 class="text-xl font-bold mb-2 text-white">Pareto of Failure Reasons</h2>
+        <canvas id="paretoChart" class="w-full h-32"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://127.0.0.1:1880/logbook/shift';
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById("currentTime").textContent = now.toLocaleString();
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    async function loadData() {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+
+      const total = data.length;
+      const pass = data.filter(d => d.final_judge?.toLowerCase() === 'pass').length;
+      const fail = data.filter(d => d.final_judge?.toLowerCase() === 'fail').length;
+
+      const modelMap = {};
+      const hourMap = {};
+      const failureMap = {};
+      let totalCycleTime = 0;
+
+      data.forEach((d, i) => {
+        const model = d.model || 'Unknown';
+        modelMap[model] = (modelMap[model] || 0) + 1;
+
+        const hour = new Date(d.timeStamp).getHours();
+        hourMap[hour] = hourMap[hour] || { total: 0, pass: 0, fail: 0 };
+        hourMap[hour].total++;
+        if (d.final_judge?.toLowerCase() === 'pass') hourMap[hour].pass++;
+        if (d.final_judge?.toLowerCase() === 'fail') {
+          hourMap[hour].fail++;
+          const reason = d.failure_reason || 'Unknown';
+          failureMap[reason] = (failureMap[reason] || 0) + 1;
+        }
+
+        if (i > 0) {
+          const prev = new Date(data[i - 1].timeStamp);
+          const curr = new Date(d.timeStamp);
+          const diffSec = (curr - prev) / 1000;
+          if (diffSec > 2 && diffSec < 300) totalCycleTime += diffSec;
+        }
+      });
+
+      // Update metrics
+      document.getElementById('modelName').textContent = Object.keys(modelMap)[0] || '-';
+      document.getElementById('totalTest').textContent = total;
+      document.getElementById('passCount').textContent = pass;
+      document.getElementById('failCount').textContent = fail;
+      document.getElementById('cycleTime').textContent = Math.round(totalCycleTime / total) + 's';
+
+      // Update Model Mix Chart
+      new Chart(document.getElementById('modelMixChart'), {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(modelMap),
+          datasets: [{
+            data: Object.values(modelMap),
+            backgroundColor: ['#60a5fa', '#34d399', '#f87171', '#facc15']
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: '#fff', font: { size: 14 } }
+            }
+          }
+        }
+      });
+
+      // Hourly chart
+      const hours = Array.from({length: 13}, (_, i) => i + 8); // 8 to 20
+      const hourLabels = hours.map(h => `${h}:00`);
+      const totalPerHour = hours.map(h => hourMap[h]?.total || 0);
+      const passPerHour = hours.map(h => hourMap[h]?.pass || 0);
+      const failPerHour = hours.map(h => hourMap[h]?.fail || 0);
+
+      new Chart(document.getElementById('lineChart'), {
+        type: 'line',
+        data: {
+          labels: hourLabels,
+          datasets: [
+            { label: 'Total', data: totalPerHour, borderColor: '#60a5fa', tension: 0.3 },
+            { label: 'Pass', data: passPerHour, borderColor: '#34d399', tension: 0.3 },
+            { label: 'Fail', data: failPerHour, borderColor: '#f87171', tension: 0.3 }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { ticks: { color: '#ccc', font: { size: 14 } } },
+            y: { beginAtZero: true, ticks: { color: '#ccc', font: { size: 14 } } }
+          },
+          plugins: {
+            legend: {
+              labels: { color: '#fff', font: { size: 14 } }
+            }
+          }
+        }
+      });
+
+      // Pareto Chart
+      new Chart(document.getElementById('paretoChart'), {
+        type: 'bar',
+        data: {
+          labels: Object.keys(failureMap),
+          datasets: [{
+            label: 'Count',
+            data: Object.values(failureMap),
+            backgroundColor: ['#f87171', '#fbbf24', '#60a5fa', '#34d399']
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#ccc', font: { size: 14 } } },
+            y: { beginAtZero: true, ticks: { color: '#ccc', font: { size: 14 } } }
+          }
+        }
+      });
+    }
+
+    loadData();
+    setInterval(loadData, 10000); // Refresh every 10s
+  </script>
+</body>
+</html>

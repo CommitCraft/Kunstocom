@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Model Master Data</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 p-6 font-sans">
+
+  <div class="max-w-screen-xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold text-teal-700">Model Master Data</h1>
+      <button onclick="openForm()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded">Add Entry</button>
+    </div>
+
+    <div class="overflow-auto max-h-[600px] border border-gray-200 rounded shadow-sm">
+      <table class="w-full text-sm">
+        <thead class="bg-teal-100 text-teal-800 sticky top-0">
+          <tr>
+            <th class="px-3 py-2">ID</th>
+            <th class="px-3 py-2">Code</th>
+            <th class="px-3 py-2">Brand</th>
+            <th class="px-3 py-2">Model</th>
+            <th class="px-3 py-2">Motor</th>
+            <th class="px-3 py-2">Rating</th>
+            <th class="px-3 py-2">S1–S9</th>
+            <th class="px-3 py-2">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="dataTable" class="bg-white divide-y divide-gray-200"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal Form -->
+  <div id="formModal" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center hidden">
+    <div class="bg-white rounded-lg p-6 max-h-[90vh] w-full max-w-4xl overflow-y-auto relative">
+      <h2 class="text-xl font-bold mb-4 text-teal-700" id="formTitle">Add Model Data</h2>
+      <form id="modelForm" class="space-y-4">
+        <div class="grid grid-cols-3 gap-4">
+          <input name="code" placeholder="Code" class="border px-3 py-2 rounded" required />
+          <input name="brandname" placeholder="Brand Name" class="border px-3 py-2 rounded" required />
+          <input name="model_name" placeholder="Model Name" class="border px-3 py-2 rounded" required />
+          <input name="motor_name" placeholder="Motor Name" class="border px-3 py-2 rounded" />
+          <input name="motor_rating" placeholder="Motor Rating" class="border px-3 py-2 rounded" />
+        </div>
+
+        <hr class="my-4">
+        <h3 class="text-lg font-semibold text-teal-600">Sensor Current & Power Limits (S1–S9)</h3>
+        <div id="sensorFields" class="grid grid-cols-4 gap-3"></div>
+
+        <div class="flex justify-end space-x-2 mt-6">
+          <button type="button" onclick="closeForm()" class="px-4 py-2 border rounded hover:bg-gray-100">Cancel</button>
+          <button type="submit" class="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2 rounded">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const apiUrl = "http://127.0.0.1:1880/modelMasterData";
+    let editId = null;
+
+    const sensorFields = document.getElementById("sensorFields");
+    const form = document.getElementById("modelForm");
+
+    // Create fields for s1 to s9
+    const sensors = Array.from({ length: 9 }, (_, i) => i + 1);
+    sensors.forEach(n => {
+      ["current_ll", "current_ul", "power_ll", "power_ul"].forEach(field => {
+        const input = document.createElement("input");
+        input.name = `s${n}_${field}`;
+        input.placeholder = `S${n} ${field.replace("_", " ").toUpperCase()}`;
+        input.className = "border px-2 py-1 rounded";
+        input.type = "number";
+        sensorFields.appendChild(input);
+      });
+    });
+
+    function openForm(data = null) {
+      document.getElementById("formModal").classList.remove("hidden");
+      form.reset();
+      editId = null;
+      if (data) {
+        document.getElementById("formTitle").innerText = "Edit Model Data";
+        Object.keys(data).forEach(key => {
+          if (form[key]) form[key].value = data[key];
+        });
+        editId = data.id;
+      } else {
+        document.getElementById("formTitle").innerText = "Add Model Data";
+      }
+    }
+
+    function closeForm() {
+      document.getElementById("formModal").classList.add("hidden");
+    }
+
+    async function fetchData() {
+      const res = await fetch(apiUrl);
+      const data = await res.json();
+      const table = document.getElementById("dataTable");
+      table.innerHTML = "";
+      data.forEach(row => {
+        table.innerHTML += `
+          <tr>
+            <td class="px-3 py-2">${row.id}</td>
+            <td class="px-3 py-2">${row.code}</td>
+            <td class="px-3 py-2">${row.brandname}</td>
+            <td class="px-3 py-2">${row.model_name}</td>
+            <td class="px-3 py-2">${row.motor_name || ""}</td>
+            <td class="px-3 py-2">${row.motor_rating || ""}</td>
+            <td class="px-3 py-2 text-xs text-gray-600">S1–S9 LL/UL</td>
+            <td class="px-3 py-2">
+              <button onclick='openForm(${JSON.stringify(row)})' class="text-blue-600 hover:underline">Edit</button>
+              <button onclick="deleteData(${row.id})" class="text-red-600 hover:underline ml-2">Delete</button>
+            </td>
+          </tr>`;
+      });
+    }
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const formData = Object.fromEntries(new FormData(form));
+      const method = editId ? "PUT" : "POST";
+      const url = editId ? `${apiUrl}/${editId}` : apiUrl;
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData)
+      });
+      closeForm();
+      fetchData();
+    };
+
+    async function deleteData(id) {
+      if (confirm("Are you sure to delete this entry?")) {
+        await fetch(`${apiUrl}/${id}`, { method: "DELETE" });
+        fetchData();
+      }
+    }
+
+    window.onload = fetchData;
+  </script>
+
+</body>
+</html>
+

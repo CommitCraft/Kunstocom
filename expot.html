@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Testing & Inspection Report - Contact Grill (IS 302-2-9:2009)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    h2 { text-align: center; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; }
+    table, th, td { border: 1px solid #000; }
+    th, td { padding: 6px; text-align: center; }
+    th { background: #f0f0f0; }
+    .controls { margin: 10px 0 20px; display:flex; gap:12px; align-items:center; flex-wrap: wrap; }
+    .controls label { font-weight: 600; }
+    .controls input { padding: 4px 6px; }
+    button { padding: 6px 12px; cursor: pointer; }
+    .right { text-align: right; }
+  </style>
+</head>
+<body>
+
+<h2>Testing and inspection report of contact grill as per IS 302-2-9 : 2009</h2>
+
+<div class="controls">
+  <label>Date: <input id="reportDate" type="date" /></label>
+  <label>Lot size: <input id="lotSize" type="text" placeholder="e.g. 20 pcs" /></label>
+  <button id="refreshBtn">Refresh</button>
+  <button onclick="exportToExcel()">Export to Excel</button>
+</div>
+
+<table id="testReportTable">
+  <thead id="thead">
+    <!-- Row to show Date & Lot size INSIDE the table (so it appears in Excel as well) -->
+    <tr>
+      <th colspan="3" class="left" style="text-align:left;">
+        Date: <span id="dateCell"></span>
+      </th>
+      <th colspan="4" class="right" style="text-align:right;">
+        Lot size: <span id="lotCell"></span>
+      </th>
+    </tr>
+
+    <!-- Main multi-row header exactly like the uploaded sheet -->
+    <tr>
+      <th colspan="7">Every contact grill</th>
+    </tr>
+    <tr>
+      <th>Test requirement</th>
+      <th>Earth continuity test<br>0.1 &Omega;</th>
+      <th>Electric strength test<br>1.0 KV for 1 sec</th>
+      <th>Functional test</th>
+      <th>Protection against Electric shock</th>
+      <th>Provision for earthing</th>
+      <th>Power input &amp; current<br>(-10% ~ +5%)</th>
+    </tr>
+    <tr>
+      <th>CL.</th>
+      <th>5.1</th>
+      <th>5.1</th>
+      <th>5.1</th>
+      <th>8</th>
+      <th>27</th>
+      <th>10</th>
+    </tr>
+    <tr>
+      <th>Sr. No</th>
+      <th>IS 302-1</th>
+      <th>IS 302-1</th>
+      <th>IS 302-1</th>
+      <th>IS 302-2-9</th>
+      <th>IS 302-2-9</th>
+      <th>IS 302-2-9</th>
+    </tr>
+  </thead>
+
+  <tbody id="reportBody">
+    <!-- Dynamic rows will be injected here -->
+  </tbody>
+</table>
+
+<script>
+  const API_URL = "http://127.0.0.1:1880/testdata";
+
+  async function fetchData() {
+    try {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+
+      // Update date & lot size spans in the table header
+      syncHeaderValues();
+
+      const tbody = document.getElementById("reportBody");
+      tbody.innerHTML = "";
+
+      // Map your API fields to the table columns
+      // Earth continuity test -> ecrValue
+      // Electric strength test -> hvStatus
+      // Functional test -> finalJudge
+      // Protection against electric shock -> protectionShock (assumed)
+      // Provision for earthing -> lcStatus (assumed)
+      // Power input & current -> powerS1 (assumed)
+      data.forEach((item, idx) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td>${item.ecrValue ?? ""}</td>
+          <td>${item.hvStatus ?? ""}</td>
+          <td>${item.finalJudge ?? ""}</td>
+          <td>${item.protectionShock ?? ""}</td>
+          <td>${item.lcStatus ?? ""}</td>
+          <td>${item.powerS1 ?? ""}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (e) {
+      console.error(e);
+      alert("Failed to fetch data from API");
+    }
+  }
+
+  function syncHeaderValues() {
+    document.getElementById("dateCell").textContent =
+      document.getElementById("reportDate").value || "";
+    document.getElementById("lotCell").textContent =
+      document.getElementById("lotSize").value || "";
+  }
+
+  // Ensure Date & Lot size values are pushed into the table before export
+  function exportToExcel() {
+    syncHeaderValues();
+
+    // Clone the table to avoid modifying the live DOM
+    const table = document.getElementById("testReportTable");
+    const wb = XLSX.utils.table_to_book(table, { sheet: "Test Report" });
+    XLSX.writeFile(
+      wb,
+      `Contact_Grill_Test_Report_${new Date().toISOString().slice(0, 10)}.xlsx`
+    );
+  }
+
+  // Refresh button
+  document.getElementById("refreshBtn").addEventListener("click", fetchData);
+
+  // Auto-load
+  window.onload = fetchData;
+</script>
+
+</body>
+</html>

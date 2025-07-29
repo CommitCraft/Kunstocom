@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Downtime Reason Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/feather-icons"></script>
+
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans min-h-screen">
+  <div class="w-full p-4 space-y-4">
+    <!-- Header and Filters -->
+    <div class="flex flex-wrap justify-between items-center gap-2">
+      <h1 class="text-xl font-bold">Downtime Reason Dashboard</h1>
+      <div class="flex gap-2 flex-wrap">
+        <input type="date" id="fromDate" class="border px-2 py-1 rounded" />
+        <input type="date" id="toDate" class="border px-2 py-1 rounded" />
+        <select id="filterMachine" class="border px-2 py-1 rounded text-sm">
+          <option value="">All Machines</option>
+        </select>
+        <input type="text" id="filterReason" placeholder="Filter Reason" class="border px-2 py-1 rounded text-sm" />
+        <button id="btnFilter" class="bg-gray-700 text-white px-3 py-1 rounded text-sm">Filter</button>
+        <button id="btnExport" class="bg-green-600 text-white px-3 py-1 rounded text-sm">Export</button>
+        <button id="btnAdd" class="bg-blue-600 text-white px-3 py-1 rounded text-sm">Add Entry</button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white shadow rounded overflow-auto">
+      <table class="min-w-full text-sm text-left">
+        <thead class="bg-blue-600 text-white sticky top-0">
+          <tr>
+            <th class="px-4 py-2">Machine</th>
+            <th class="px-4 py-2">Reason</th>
+            <th class="px-4 py-2">Temporary</th>
+            <th class="px-4 py-2">Permanent</th>
+            <th class="px-4 py-2">Responsibility</th>
+            <th class="px-4 py-2">Target Date</th>
+            <th class="px-4 py-2 text-center">⚙</th>
+          </tr>
+        </thead>
+        <tbody id="dataBody" class="bg-white divide-y divide-gray-100"></tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="flex justify-center items-center gap-4 mt-4">
+      <button id="btnPrev" class="bg-gray-300 px-3 py-1 rounded text-sm">Prev</button>
+      <span id="pageInfo" class="text-sm"></span>
+      <button id="btnNext" class="bg-gray-300 px-3 py-1 rounded text-sm">Next</button>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="formModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <form id="crudForm" class="bg-white p-6 rounded shadow-md w-full max-w-screen-md space-y-4">
+      <h2 class="text-xl font-semibold" id="formTitle">Add Downtime Entry</h2>
+      <input type="hidden" id="formIndex" />
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block mb-1" for="machineId">Machine</label>
+          <select required id="machineId" class="w-full border rounded px-3 py-2">
+            <option value="">Loading...</option>
+          </select>
+        </div>
+        <div>
+          <label class="block mb-1" for="reason">Reason</label>
+          <input required id="reason" class="w-full border rounded px-3 py-2" />
+        </div>
+        <div>
+          <label class="block mb-1" for="temporary">Temporary Action</label>
+          <input required id="temporary" class="w-full border rounded px-3 py-2" />
+        </div>
+        <div>
+          <label class="block mb-1" for="permanent">Permanent Action</label>
+          <input required id="permanent" class="w-full border rounded px-3 py-2" />
+        </div>
+        <div>
+          <label class="block mb-1" for="responsibility">Responsibility</label>
+          <input required id="responsibility" class="w-full border rounded px-3 py-2" />
+        </div>
+        <div>
+          <label class="block mb-1" for="target_date">Target Date</label>
+          <input required type="date" id="target_date" class="w-full border rounded px-3 py-2" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2">
+        <button type="button" id="btnCancel" class="bg-gray-400 text-white px-4 py-2 rounded">Cancel</button>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Save</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Toasts -->
+  <div id="toastContainer" class="fixed top-4 right-4 space-y-2 z-50"></div>
+
+  <script>
+    const BASE_API_URL = "http://10.0.156.2:1880";
+    const API_MACHINE_LIST = `${BASE_API_URL}/ppMachinesList`;
+    const API_DOWNTIME = `${BASE_API_URL}/downtimeReasonData`;
+
+    let data = [], currentPage = 1, rowsPerPage = 10;
+
+    const toast = (msg, isError = false) => {
+      const div = document.createElement("div");
+      div.textContent = msg;
+      div.className = `px-4 py-2 rounded shadow text-white ${isError ? "bg-red-500" : "bg-green-600"}`;
+      document.getElementById("toastContainer").appendChild(div);
+      setTimeout(() => div.remove(), 3000);
+    };
+
+    const formatDate = (dateStr) => {
+      if (!dateStr) return "";
+      const date = new Date(dateStr);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
+    async function loadMachineIds() {
+      try {
+        const res = await fetch(API_MACHINE_LIST);
+        if (!res.ok) throw new Error("Failed to load machines");
+        const machines = await res.json();
+
+        ["machineId", "filterMachine"].forEach(id => {
+          const select = document.getElementById(id);
+          select.innerHTML = `<option value="">${id === "filterMachine" ? "All Machines" : "Select Machine"}</option>`;
+          machines.forEach(mc => {
+            const opt = document.createElement("option");
+            opt.value = mc;
+            opt.textContent = mc;
+            select.appendChild(opt);
+          });
+        });
+      } catch (err) {
+        toast("Failed to load machines", true);
+      }
+    }
+
+    function renderTable(filtered) {
+  const start = (currentPage - 1) * rowsPerPage;
+  const paginated = filtered.slice(start, start + rowsPerPage);
+  const body = document.getElementById("dataBody");
+  body.innerHTML = "";
+  paginated.forEach((row, index) => {
+    const tr = document.createElement("tr");
+    tr.className = "hover:bg-gray-50";
+    tr.innerHTML = `
+      <td class="px-4 py-2">${row.machineId}</td>
+      <td class="px-4 py-2">${row.reason}</td>
+      <td class="px-4 py-2">${row.temporary}</td>
+      <td class="px-4 py-2">${row.permanent}</td>
+      <td class="px-4 py-2">${row.responsibility}</td>
+      <td class="px-4 py-2">${formatDate(row.target_date)}</td>
+      <td class="px-4 py-2 text-center">
+        <div class="flex justify-center items-center space-x-2">
+          <button onclick="editEntry(${data.indexOf(row)})" class="text-blue-600 hover:text-blue-800 p-2 rounded" title="Edit">
+            <i data-feather="edit" class="w-4 h-4"></i>
+          </button>
+          <button onclick="deleteEntry(${row.id})" class="text-red-600 hover:text-red-800 p-2 rounded" title="Delete">
+            <i data-feather="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </td>
+    `;
+    body.appendChild(tr);
+  });
+  document.getElementById("pageInfo").textContent = `Page ${currentPage} of ${Math.ceil(filtered.length / rowsPerPage) || 1}`;
+  
+  // 🔧 IMPORTANT: Render feather icons after table content is inserted
+  feather.replace();
+}
+
+    
+    function getFilteredData() {
+      const machine = document.getElementById("filterMachine").value;
+      const reason = document.getElementById("filterReason").value.toLowerCase();
+      const from = document.getElementById("fromDate").value;
+      const to = document.getElementById("toDate").value;
+      return data.filter(d =>
+        (!machine || d.machineId === machine) &&
+        (!reason || d.reason.toLowerCase().includes(reason)) &&
+        (!from || d.target_date >= from) &&
+        (!to || d.target_date <= to)
+      );
+    }
+
+    async function fetchData() {
+      try {
+        const res = await fetch(API_DOWNTIME);
+        if (!res.ok) throw new Error("Failed to fetch downtime data");
+        data = await res.json();
+        renderTable(getFilteredData());
+      } catch (err) {
+        toast(err.message, true);
+      }
+    }
+
+    document.getElementById("btnFilter").onclick = () => {
+      currentPage = 1;
+      renderTable(getFilteredData());
+    };
+
+    document.getElementById("btnExport").onclick = () => {
+      const filtered = getFilteredData();
+      const csv = [
+        ["Machine", "Reason", "Temporary", "Permanent", "Responsibility", "Target Date"],
+        ...filtered.map(d => [d.machineId, d.reason, d.temporary, d.permanent, d.responsibility, d.target_date])
+      ].map(row => row.map(val => `"${val}"`).join(",")).join("\n");
+      const link = document.createElement("a");
+      link.href = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
+      link.download = "downtime_data.csv";
+      link.click();
+    };
+
+    document.getElementById("btnAdd").onclick = () => {
+      document.getElementById("crudForm").reset();
+      document.getElementById("formIndex").value = "";
+      document.getElementById("formModal").classList.remove("hidden");
+    };
+
+    document.getElementById("btnCancel").onclick = () => {
+      document.getElementById("formModal").classList.add("hidden");
+    };
+
+    document.getElementById("crudForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const payload = {
+        machineId: machineId.value,
+        reason: reason.value,
+        temporary: temporary.value,
+        permanent: permanent.value,
+        responsibility: responsibility.value,
+        target_date: target_date.value,
+      };
+      const idx = formIndex.value;
+      try {
+        const res = await fetch(idx ? `${API_DOWNTIME}/${data[idx].id}` : API_DOWNTIME, {
+          method: idx ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("Failed to save entry");
+        toast(idx ? "Entry updated" : "Entry added");
+        document.getElementById("formModal").classList.add("hidden");
+        fetchData();
+      } catch (err) {
+        toast(err.message, true);
+      }
+    };
+
+    function editEntry(idx) {
+      formIndex.value = idx;
+      const d = data[idx];
+      ["machineId", "reason", "temporary", "permanent", "responsibility", "target_date"].forEach(id => {
+        document.getElementById(id).value = d[id];
+      });
+      document.getElementById("formModal").classList.remove("hidden");
+    }
+
+    async function deleteEntry(id) {
+      if (!confirm("Delete this entry?")) return;
+      try {
+        const res = await fetch(`${API_DOWNTIME}/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Delete failed");
+        toast("Entry deleted");
+        fetchData();
+      } catch (err) {
+        toast(err.message, true);
+      }
+    }
+
+    document.getElementById("btnPrev").onclick = () => {
+      if (currentPage > 1) {
+        currentPage--;
+        renderTable(getFilteredData());
+      }
+    };
+    document.getElementById("btnNext").onclick = () => {
+      if (currentPage < Math.ceil(getFilteredData().length / rowsPerPage)) {
+        currentPage++;
+        renderTable(getFilteredData());
+      }
+    };
+
+    loadMachineIds();
+    fetchData();
+  </script>
+</body>
+</html>

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Preventive Maintenance Plan</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 p-5">
+  <div class="container">
+    <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+      <input type="text" id="searchInput" placeholder="Search..." class="w-full md:w-1/3 px-4 py-2 border rounded shadow-sm" onkeyup="filterTable()" />
+      <div class="flex flex-wrap gap-2">
+        <button class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#pmModal" onclick="openCreateModal()">Create New PM Plan</button>
+        <button class="btn btn-success" type="button" data-bs-toggle="modal" data-bs-target="#exportModal">Export to Excel</button>
+      </div>
+    </div>
+
+    <div id="loader" class="text-center my-3 d-none">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="mt-2">Loading...</p>
+    </div>
+
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>S.No.</th>
+          <th>Machine Name</th>
+          <th>Frequency</th>
+          <th>Scheduled Date</th>
+          <th>Advance Alert</th>
+          <th>Check Sheet</th>
+          <th>Responsible</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="pmTableBody"></tbody>
+    </table>
+    <div class="d-flex justify-content-between align-items-center mt-3">
+      <div id="paginationInfo" class="text-muted"></div>
+      <div>
+        <button class="btn btn-secondary btn-sm me-2" onclick="prevPage()">Prev</button>
+        <button class="btn btn-secondary btn-sm" onclick="nextPage()">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for Create/Edit -->
+  <div class="modal fade" id="pmModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Create / Edit PM Plan</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="pmForm">
+            <input type="hidden" id="planId" />
+            <div class="mb-3">
+              <label class="form-label">Machine Name</label>
+              <select class="form-select" id="machineNumber" required></select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Frequency</label>
+              <select class="form-select" id="frequency" required>
+                <option value="">-- Select Frequency --</option>
+                <option value="Weekly">Weekly</option>
+                <option value="Monthly">Monthly</option>
+                <option value="Quarterly">Quarterly</option>
+                <option value="Yearly">Yearly</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Scheduled Date</label>
+              <input type="date" class="form-control" id="scheduledDate" required />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Advance Alert Time (Days)</label>
+              <input type="number" class="form-control" id="advanceAlert" required />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Check Sheet</label>
+              <select class="form-select" id="checkSheet" required></select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Responsible</label>
+              <select class="form-select" id="responsible" required></select>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary">Submit</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="position-fixed top-0 end-0 p-3" style="z-index: 9999">
+    <div id="pmToast" class="toast align-items-center text-white bg-primary border-0" role="alert">
+      <div class="d-flex">
+        <div class="toast-body" id="toastMessage">Placeholder</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  
+</body>
+<script>
+    const baseUrl = "http://10.0.156.2:1880";
+let plans = [];
+let currentPage = 1;
+const pageSize = 10;
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadDropdowns();
+  loadTable();
+  document.getElementById("pmForm").addEventListener("submit", handleSubmit);
+});
+
+function openCreateModal() {
+  document.getElementById("pmForm").reset();
+  document.getElementById("planId").value = "";
+}
+
+function openEditModal(plan) {
+  document.getElementById("planId").value = plan.id;
+  document.getElementById("machineNumber").value = plan.machineName;
+  document.getElementById("frequency").value = plan.frequency;
+  document.getElementById("scheduledDate").value = plan.scheduledDate || "";
+  document.getElementById("advanceAlert").value = plan.advanceAlertTime;
+  document.getElementById("checkSheet").value = plan.checksheetName;
+  document.getElementById("responsible").value = plan.responsible;
+  new bootstrap.Modal(document.getElementById("pmModal")).show();
+}
+
+async function handleSubmit(e) {
+  e.preventDefault();
+  const id = document.getElementById("planId").value;
+  const body = {
+    id: id || undefined,
+    machineName: document.getElementById("machineNumber").value,
+    frequency: document.getElementById("frequency").value,
+    scheduledDate: document.getElementById("scheduledDate").value,
+    advanceAlertTime: parseInt(document.getElementById("advanceAlert").value),
+    checksheetName: document.getElementById("checkSheet").value,
+    responsible: document.getElementById("responsible").value,
+  };
+
+  const url = id ? `${baseUrl}/editMachinePMPlan` : `${baseUrl}/createMachinePMPlan`;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const result = await res.json();
+    toast(result.message || "Operation successful!");
+    bootstrap.Modal.getInstance(document.getElementById("pmModal")).hide();
+    loadTable();
+  } catch (err) {
+    toast("Failed to save plan.", true);
+    console.error(err);
+  }
+}
+
+async function loadTable() {
+  const loader = document.getElementById("loader");
+  loader.classList.remove("d-none");
+  try {
+    const res = await fetch(`${baseUrl}/readMachinePMPlan`);
+    plans = await res.json();
+    currentPage = 1;
+    renderTablePage();
+  } catch (err) {
+    toast("Failed to load plans.", true);
+    console.error(err);
+  } finally {
+    loader.classList.add("d-none");
+  }
+}
+
+function renderTablePage() {
+  const tbody = document.getElementById("pmTableBody");
+  const start = (currentPage - 1) * pageSize;
+  const paginatedPlans = plans.slice(start, start + pageSize);
+
+  tbody.innerHTML = paginatedPlans.map((p, i) => `
+    <tr>
+      <td>${start + i + 1}</td>
+      <td>${p.machineName}</td>
+      <td>${p.frequency}</td>
+      <td>${p.scheduledDate || ''}</td>
+      <td>${p.advanceAlertTime}</td>
+      <td>${p.checksheetName}</td>
+      <td>${p.responsible}</td>
+      <td>
+        <button class="btn btn-outline-warning btn-sm" onclick='openEditModal(${JSON.stringify(p)})'>
+          <i class="bi bi-pencil-square"></i>
+        </button>
+        <button class="btn btn-outline-danger btn-sm" onclick='deletePlan("${p.id}")'>
+          <i class="bi bi-trash"></i>
+        </button>
+      </td>
+    </tr>
+  `).join("");
+
+  updatePaginationInfo();
+}
+
+function updatePaginationInfo() {
+  const totalPages = Math.ceil(plans.length / pageSize);
+  document.getElementById("paginationInfo").textContent = `Page ${currentPage} of ${totalPages}`;
+  document.querySelector('button[onclick="prevPage()"]').disabled = currentPage === 1;
+  document.querySelector('button[onclick="nextPage()"]').disabled = currentPage === totalPages;
+}
+
+function prevPage() {
+  if (currentPage > 1) {
+    currentPage--;
+    renderTablePage();
+  }
+}
+
+function nextPage() {
+  const totalPages = Math.ceil(plans.length / pageSize);
+  if (currentPage < totalPages) {
+    currentPage++;
+    renderTablePage();
+  }
+}
+
+async function deletePlan(id) {
+  if (!confirm("Are you sure?")) return;
+
+  try {
+    const res = await fetch(`${baseUrl}/deleteMachinePMPlan`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+
+    const result = await res.json();
+    toast(result.message || "Deleted.");
+    loadTable();
+  } catch (err) {
+    toast("Failed to delete.", true);
+    console.error(err);
+  }
+}
+
+function filterTable() {
+  const query = document.getElementById("searchInput").value.toLowerCase();
+  const filtered = plans.filter(plan =>
+    Object.values(plan).some(val =>
+      String(val).toLowerCase().includes(query)
+    )
+  );
+  plans = filtered;
+  currentPage = 1;
+  renderTablePage();
+}
+
+async function loadDropdowns() {
+  try {
+    const [machines, checksheets, users] = await Promise.all([
+      fetch(`${baseUrl}/PPlanMachinesList`).then((r) => r.json()),
+      fetch(`${baseUrl}/checksheets`).then((r) => r.json()),
+      fetch(`${baseUrl}/users`).then((r) => r.json()),
+    ]);
+
+    document.getElementById("machineNumber").innerHTML = machines.map(m => `<option value="${m.machineName}">${m.machineName}</option>`).join("");
+    document.getElementById("checkSheet").innerHTML = checksheets.map(c => `<option value="${c.checksheetName}">${c.checksheetName}</option>`).join("");
+    document.getElementById("responsible").innerHTML = users.map(u => `<option value="${u.responsible}">${u.responsible}</option>`).join("");
+  } catch (err) {
+    toast("Failed to load dropdowns.", true);
+    console.error(err);
+  }
+}
+
+function toast(message, isError = false) {
+  const toastEl = document.getElementById("pmToast");
+  const msgEl = document.getElementById("toastMessage");
+  msgEl.textContent = message;
+  toastEl.classList.remove("bg-primary", "bg-danger");
+  toastEl.classList.add(isError ? "bg-danger" : "bg-primary");
+  new bootstrap.Toast(toastEl).show();
+}
+
+</script>
+</html>

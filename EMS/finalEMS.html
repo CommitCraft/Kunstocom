@@ -123,7 +123,12 @@
                 label: "KWH",
                 data: enriched.map(e => e.kwh),
                 backgroundColor: "#3b82f6",
-                borderRadius: 5
+                borderRadius: 5,
+                datalabels: {
+                  color: "#fff",
+                  font: { size: 10 },
+                  formatter: val => formatNumber(val)
+                }
               },
               {
                 type: "line",
@@ -133,24 +138,54 @@
                 backgroundColor: "#f97316",
                 tension: 0.4,
                 fill: false,
-                pointRadius: 4
+                pointRadius: 4,
+                datalabels: {
+                  color: "#fff",
+                  font: { size: 10 },
+                  formatter: val => formatNumber(val)
+                }
               }
             ]
           },
           options: {
-            plugins: {
-              legend: { labels: { color: "#fff" } },
-              datalabels: {
-                color: "#fff",
-                font: { size: 10 },
-                formatter: val => formatNumber(val)
-              }
-            },
-            scales: {
-              x: { ticks: { color: "#fff" } },
-              y: { ticks: { color: "#fff" }, beginAtZero: true }
-            }
-          },
+  plugins: {
+    legend: { labels: { color: "#fff" } },
+    datalabels: {} // individual config already exists
+  },
+  scales: {
+    x: {
+      ticks: { color: "#fff" }
+    },
+    "y-kwh": {
+      type: "linear",
+      position: "left",
+      title: {
+        display: true,
+        text: "Energy (kWh)",
+        color: "#3b82f6"
+      },
+      ticks: {
+        color: "#3b82f6"
+      }
+    },
+    "y-cost": {
+      type: "linear",
+      position: "right",
+      title: {
+        display: true,
+        text: "Cost (₹)",
+        color: "#f97316"
+      },
+      ticks: {
+        color: "#f97316"
+      },
+      grid: {
+        drawOnChartArea: false
+      }
+    }
+  }
+},
+
           plugins: [ChartDataLabels]
         });
 
@@ -173,51 +208,88 @@
           return `${day}/${month}`;
         });
 
-        const ctx2 = document.getElementById("weeklyTrendChart").getContext("2d");
-        if (charts.trend) charts.trend.destroy();
-        charts.trend = new Chart(ctx2, {
-          type: "line",
-          data: {
-            labels: formattedDates,
-            datasets: [
-              {
-                label: "Total Energy (kWh)",
-                data: sortedDates.map(date => trendMap[date].energy),
-                borderColor: "#10b981",
-                backgroundColor: "#10b981",
-                fill: false,
-                tension: 0.3,
-                pointRadius: 4,
-                pointHoverRadius: 6
-              },
-              {
-                label: "Total Cost (₹)",
-                data: sortedDates.map(date => trendMap[date].cost),
-                borderColor: "#facc15",
-                backgroundColor: "#facc15",
-                fill: false,
-                tension: 0.3,
-                pointRadius: 4,
-                pointHoverRadius: 6
-              }
-            ]
-          },
-          options: {
-            plugins: {
-              legend: { labels: { color: "#fff" } },
-              datalabels: { display: false }
-            },
-            scales: {
-              x: { ticks: { color: "#fff" } },
-              y: {
-                beginAtZero: true,
-                ticks: { color: "#fff" }
-              }
-            }
-          },
-          plugins: [ChartDataLabels]
-        });
-      } catch (err) {
+        // --- Dynamic title update with date range ---
+        const formatDateDM = (d) => {
+          const dateObj = new Date(d);
+          const day = dateObj.getDate().toString().padStart(2, '0');
+          const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+          return `${day}/${month}`;
+        };
+
+        const fromDate = sortedDates.length > 0 ? formatDateDM(sortedDates[0]) : "--/--";
+        const toDate = sortedDates.length > 0 ? formatDateDM(sortedDates[sortedDates.length - 1]) : "--/--";
+
+        document.querySelector("#weeklyCombinedChart").previousElementSibling.textContent =
+          `From ${fromDate} To ${toDate} KWH & Cost`;
+
+        document.querySelector("#weeklyTrendChart").previousElementSibling.textContent =
+          `From ${fromDate} To ${toDate} Energy & Cost Trend`;
+const ctx2 = document.getElementById("weeklyTrendChart").getContext("2d");
+if (charts.trend) charts.trend.destroy();
+charts.trend = new Chart(ctx2, {
+  type: "line",
+  data: {
+    labels: formattedDates,
+    datasets: [
+  {
+    type: "bar",
+    label: "KWH",
+    data: enriched.map(e => e.kwh),
+    backgroundColor: "#3b82f6",
+    borderRadius: 5,
+    yAxisID: "y-kwh",
+    datalabels: {
+      color: "#fff",
+      font: { size: 10 },
+      formatter: val => formatNumber(val)
+    }
+  },
+  {
+    type: "line",
+    label: "Cost (₹)",
+    data: enriched.map(e => e.cost),
+    borderColor: "#f97316",
+    backgroundColor: "#f97316",
+    tension: 0.4,
+    fill: false,
+    pointRadius: 4,
+    yAxisID: "y-cost",
+    datalabels: {
+      color: "#fff",
+      font: { size: 10 },
+      formatter: val => formatNumber(val)
+    }
+  }
+]
+
+    },
+  options: {
+    plugins: {
+      legend: { labels: { color: "#fff" } }
+    },
+    scales: {
+      x: {
+        ticks: { color: "#fff" }
+      },
+      "y-energy": {
+        type: "linear",
+        position: "left",
+        title: { display: true, text: "Energy (kWh)", color: "#10b981" },
+        ticks: { color: "#10b981" }
+      },
+      "y-cost": {
+        type: "linear",
+        position: "right",
+        title: { display: true, text: "Cost (₹)", color: "#facc15" },
+        ticks: { color: "#facc15" },
+        grid: { drawOnChartArea: false } // Prevents grid overlap
+      }
+    }
+  },
+  plugins: [ChartDataLabels]
+});
+
+        } catch (err) {
         console.error("EMS Dashboard Error:", err);
       }
     }

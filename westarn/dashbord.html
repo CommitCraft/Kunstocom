@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Saral Tech Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Modal and collapse styles for Model Master */
+    #form-modal {
+      transition: opacity 0.3s ease;
+    }
+    #form-modal.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .collapse-header {
+      cursor: pointer;
+    }
+    .collapse-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    .collapse-content.open {
+      max-height: 500px;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #3b82f6;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 8px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .chart-container {
+      position: relative;
+      height: 340px;
+      width: 100%;
+    
+    }
+    canvas {
+      width: 100% !important;
+      height: 90% !important; 
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans text-gray-800">
+
+  <!-- Layout -->
+  <div class="flex h-screen">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white shadow-lg p-4">
+      <h2 class="text-xl font-bold mb-6 text-green-600">Saral Technologies</h2>
+
+
+      <nav class="space-y-2">
+        <button onclick="showSection('dashboard')" class="w-full text-left px-4 py-2 rounded hover:bg-green-100">Dashboard</button>
+        <button onclick="showSection('modelmaster')" class="w-full text-left px-4 py-2 rounded hover:bg-green-100">Model Master</button>
+        <button onclick="showSection('logbook')" class="w-full text-left px-4 py-2 rounded hover:bg-green-100">Log Book</button>
+        <!-- <button onclick="logout()" class="w-full text-left px-4 py-2 text-red-600 hover:bg-red-100">Logout</button> -->
+    </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto p-6 bg-gray-50">
+      <section id="dashboard" class=" mx-auto bg-white p-6 rounded shadow">
+        <!-- Header -->
+<header class="bg-white shadow-md rounded-lg shadow w-full p-4 flex items-center justify-between">
+  <!-- Left Spacer for Centering -->
+  <div class="w-[120px] hidden md:block"></div>
+
+  <!-- Center Title -->
+  <h1 class="text-2xl md:text-3xl font-bold text-gray-800 text-center flex-grow">
+    Westan Electrical Appliances
+  </h1>
+
+  <!-- Right DateTime -->
+  <div id="datetime" class="text-gray-600 text-lg font-medium w-[220px] text-right"></div>
+</header>
+
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 m-4">
+    <div class="bg-white rounded-lg shadow p-4 text-center">
+      <h2 class="text-lg font-semibold mb-2">Running Model</h2>
+      <p id="runningModel" class="text-2xl font-bold">-</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 text-center">
+      <h2 class="text-lg font-semibold mb-2">Total Tested</h2>
+      <p id="totalTested" class="text-2xl font-bold">-</p>
+    </div>
+    <div class="bg-green-100 rounded-lg shadow p-4 text-center">
+      <h2 class="text-lg font-semibold mb-2">Pass</h2>
+      <p id="passCount" class="text-2xl font-bold text-green-700">-</p>
+    </div>
+    <div class="bg-red-100 rounded-lg shadow p-4 text-center">
+      <h2 class="text-lg font-semibold mb-2">Fail</h2>
+      <p id="failCount" class="text-2xl font-bold text-red-700">-</p>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- Model Mix Pie Chart -->
+    <div class="bg-white p-4 rounded-lg shadow chart-container">
+      <h3 class="text-xl font-semibold mb-4">Model Mix (Top 10)</h3>
+      <canvas id="modelMixChart"></canvas>
+    </div>
+
+    <!-- Hourly Production Bar Chart -->
+    <div class="bg-white p-4 rounded-lg shadow chart-container">
+      <h3 class="text-xl font-semibold mb-4">Hourly Production (8am–8pm)</h3>
+      <canvas id="hourlyProductionChart"></canvas>
+    </div>
+
+    <!-- Today's Rejection Bar Chart -->
+    <div class="bg-white p-4 rounded-lg shadow chart-container">
+      <h3 class="text-xl font-semibold mb-4">Today's Rejection Reasons</h3>
+      <canvas id="rejectionTodayChart"></canvas>
+    </div>
+
+    <!-- Last 7 Days Rejection Bar Chart -->
+    <div class="bg-white p-4 rounded-lg shadow chart-container">
+      <h3 class="text-xl font-semibold mb-4">Rejection Reasons (Last 7 Days)</h3>
+      <canvas id="rejection7DaysChart"></canvas>
+    </div>
+  </div>
+      </section>
+        
+      <!-- Model Master Section -->
+      <section id="modelmaster" class="hidden max-w-screen-xl mx-auto bg-white p-6 rounded shadow">
+        <div class="flex justify-between items-center mb-4">
+          <h1 class="text-3xl font-semibold text-blue-800">Model Master Data</h1>
+          <button onclick="openForm()" class="bg-blue-600 text-white px-4 py-2 rounded shadow">
+            Add Model
+          </button>
+        </div>
+
+        <table class="w-full text-sm border rounded overflow-x-auto bg-white shadow">
+          <thead class="bg-blue-100 text-blue-900 font-semibold">
+            <tr>
+              <th class="px-3 py-2">Code</th>
+              <th class="px-3 py-2">Brand Name</th>
+              <th class="px-3 py-2">Model Name</th>
+              <th class="px-3 py-2">Product Code</th>
+              <th class="px-3 py-2">Rating</th>
+              <th class="px-3 py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="table-body" class="text-gray-700"></tbody>
+        </table>
+
+        <!-- Modal for Add/Edit -->
+        <div id="form-modal" class="fixed inset-0 hidden bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div class="bg-white p-6 rounded-2xl shadow-xl w-[95%] max-w-3xl max-h-[90vh] overflow-y-auto">
+            <h2 id="form-title" class="text-2xl font-bold mb-6 text-blue-800 border-b pb-2">
+              Add Model
+            </h2>
+            <form id="data-form" class="space-y-6">
+              <div class="grid grid-cols-1 gap-4">
+                <div>
+                  <label for="code" class="block text-sm font-medium text-gray-700">Code</label>
+                  <input id="code" name="code" required placeholder="Code" class="border rounded px-4 py-2 w-full text-sm" />
+                  <div id="code-display" class="hidden px-4 py-2 text-sm text-gray-800 bg-gray-100 rounded"></div>
+                </div>
+
+                <div>
+                  <label for="brandname" class="block text-sm font-medium text-gray-700">Brand Name</label>
+                  <input id="brandname" name="brandname" required placeholder="Brand Name" class="border rounded px-4 py-2 w-full text-sm" />
+                </div>
+
+                <div>
+                  <label for="model_name" class="block text-sm font-medium text-gray-700">Model Name</label>
+                  <input id="model_name" name="model_name" required placeholder="Model Name" class="border rounded px-4 py-2 w-full text-sm" />
+                </div>
+
+                <div>
+                  <label for="motor_name" class="block text-sm font-medium text-gray-700">Product Code</label>
+                  <input id="motor_name" name="motor_name" placeholder="Product Code" class="border rounded px-4 py-2 w-full text-sm" />
+                </div>
+
+                <div>
+                  <label for="motor_rating" class="block text-sm font-medium text-gray-700">Motor Rating</label>
+                  <input id="motor_rating" name="motor_rating" placeholder="Motor Rating" class="border rounded px-4 py-2 w-full text-sm" />
+                </div>
+              </div>
+
+              <div>
+                <h3 class="text-lg font-semibold text-blue-700 mb-4">S1–S9 Parameters</h3>
+                <div id="s-data" class="space-y-4"></div>
+                <button id="add-s-btn" type="button" onclick="addSField()" class="bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium px-4 py-2 rounded">
+                  + Add S Parameter
+                </button>
+              </div>
+
+              <div class="flex justify-end gap-4 pt-4 border-t mt-6">
+                <button type="button" onclick="closeForm()" class="bg-gray-600 text-white px-5 py-2 rounded hover:bg-gray-700">Cancel</button>
+                <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- Log Book Section -->
+      <section id="logbook" class="hidden max-w-screen-xl mx-auto shadow-lg rounded-lg bg-white p-6">
+        <div
+          class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6"
+        >
+          <h1 class="text-3xl font-semibold text-blue-800">Log Book Dashboard</h1>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-4 mb-6">
+          <input
+            type="text"
+            id="searchInput"
+            onkeyup="searchTable()"
+            placeholder="Search..."
+            class="flex-grow min-w-[180px] border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
+          />
+
+          <label class="flex flex-col text-sm text-gray-600">
+            From Date
+            <input
+              type="date"
+              id="fromDate"
+              class="border border-gray-300 rounded-md px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-green-400"
+            />
+          </label>
+
+          <label class="flex flex-col text-sm text-gray-600">
+            To Date
+            <input
+              type="date"
+              id="toDate"
+              class="border border-gray-300 rounded-md px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-green-400"
+            />
+          </label>
+
+          <button
+            onclick="applyFilters()"
+            class="bg-blue-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-md shadow-md transition duration-200"
+          >
+            Apply Filter
+          </button>
+          <button
+            onclick="exportToExcel()"
+            class="bg-blue-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-md shadow-md transition duration-200"
+          >
+            Export Excel
+          </button>
+        </div>
+
+        <div class="overflow-x-auto rounded-md border border-gray-200 shadow-sm">
+          <table
+            id="dataTable"
+            class="min-w-full divide-y divide-gray-200 table-auto"
+          >
+            <thead class="bg-blue-100 text-blue-900 font-semibold">
+              <tr>
+                <th class="px-4 py-3 text-left">Timestamp</th>
+                <th class="px-4 py-3 text-left">Product SN</th>
+                <th class="px-4 py-3 text-left">ECR Status</th>
+                <th class="px-4 py-3 text-left">HV Status</th>
+                <th class="px-4 py-3 text-left">IR Status</th>
+                <th class="px-4 py-3 text-left">LC Status</th>
+                <th class="px-4 py-3 text-left">S1 Volt</th>
+                <th class="px-4 py-3 text-left">S1 Current</th>
+                <th class="px-4 py-3 text-left">Power S1</th>
+                <th class="px-4 py-3 text-left">S1 Status</th>
+
+                <th class="px-4 py-3 text-left">Final Judge</th>
+              </tr>
+            </thead>
+            <tbody
+              id="tableBody"
+              class="bg-white divide-y divide-gray-100"
+            ></tbody>
+          </table>
+        </div>
+        <div class="mt-4 text-gray-600 text-sm text-center" id="pagination"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+
+    const API_BASE = 'http://127.0.0.1:1880';
+
+    // Elements for summary
+     function updateDateTime() {
+    const now = new Date();
+    const options = {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false // 24-hour format
+    };
+
+    const dateTimeString = now.toLocaleString('en-IN', options);
+    document.getElementById('datetime').textContent = dateTimeString;
+  }
+   updateDateTime(); // initial
+  setInterval(updateDateTime, 1000); // every second
+    // --- SPA Section Switching ---
+    function showSection(id) {
+  ['modelmaster', 'logbook', 'dashboard'].forEach(s => {
+    const el = document.getElementById(s);
+    if (el) {
+      el.classList.toggle('hidden', s !== id);
+    }
+  });
+}
+
+
+    // Logout placeholder
+    function logout() {
+      alert('Logged out (demo). Implement your logout logic.');
+      location.reload();
+    }
+
+
+    // Elements for summary
+    const runningModelEl = document.getElementById('runningModel');
+    const totalTestedEl = document.getElementById('totalTested');
+    const passCountEl = document.getElementById('passCount');
+    const failCountEl = document.getElementById('failCount');
+
+    let modelMixChart, hourlyProductionChart, rejectionTodayChart, rejection7DaysChart;
+   
+
+ 
+
+    async function fetchSummary() {
+      try {
+        const res = await fetch(`${API_BASE}/logbook/shift/summary`);
+        const data = await res.json();
+        runningModelEl.textContent = data.runningModel || '-';
+        totalTestedEl.textContent = data.totalTested || 0;
+        passCountEl.textContent = data.pass || 0;
+        failCountEl.textContent = data.fail || 0;
+      } catch (err) {
+        console.error('Error fetching summary:', err);
+      }
+    }
+
+    async function fetchModelMix() {
+      try {
+        const res = await fetch(`${API_BASE}/logbook/shift/modelmix`);
+        const data = await res.json();
+        const ctx = document.getElementById('modelMixChart').getContext('2d');
+        if (modelMixChart) modelMixChart.destroy();
+
+        const colors = generateColors(data.labels.length);
+
+        modelMixChart = new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels: data.labels,
+            datasets: [{
+              data: data.data,
+              backgroundColor: colors,
+              borderColor: '#fff',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom' }
+            }
+          }
+        });
+      } catch (err) {
+        console.error('Error fetching model mix:', err);
+      }
+    }
+
+    async function fetchHourlyProduction() {
+      try {
+        const res = await fetch(`${API_BASE}/logbook/shift/hourlyproduction`);
+        const data = await res.json();
+        const ctx = document.getElementById('hourlyProductionChart').getContext('2d');
+        if (hourlyProductionChart) hourlyProductionChart.destroy();
+
+        hourlyProductionChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: data.labels,
+            datasets: [{
+              label: 'Produced',
+              data: data.data,
+              backgroundColor: 'rgba(59, 130, 246, 0.7)',
+              borderColor: 'rgba(59, 130, 246, 1)',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            scales: {
+              y: { beginAtZero: true, precision: 0 },
+              x: { title: { display: true, text: 'Time' } }
+            },
+            responsive: true,
+            maintainAspectRatio: false
+          }
+        });
+      } catch (err) {
+        console.error('Error fetching hourly production:', err);
+      }
+    }
+
+    async function fetchRejectionToday() {
+      try {
+        const res = await fetch(`${API_BASE}/logbook/shift/rejection/today`);
+        const data = await res.json();
+
+        const labels = data.map(r => r.label || 'Unknown');
+        const values = data.map(r => r.value || 0);
+        const colors = generateColors(labels.length);
+
+        const ctx = document.getElementById('rejectionTodayChart').getContext('2d');
+        if (rejectionTodayChart) rejectionTodayChart.destroy();
+
+        rejectionTodayChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Count',
+              data: values,
+              backgroundColor: colors,
+              borderColor: '#fff',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            scales: {
+              y: { beginAtZero: true, precision: 0 },
+              x: { ticks: { autoSkip: false }, title: { display: true, text: 'Reasons' } }
+            },
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            }
+          }
+        });
+      } catch (err) {
+        console.error('Error fetching today rejection:', err);
+      }
+    }
+
+    async function fetchRejection7Days() {
+      try {
+        const res = await fetch(`${API_BASE}/logbook/shift/rejection/7days`);
+        const data = await res.json();
+
+        const labels = data.map(r => r.label || 'Unknown');
+        const values = data.map(r => r.value || 0);
+        const colors = generateColors(labels.length);
+
+        const ctx = document.getElementById('rejection7DaysChart').getContext('2d');
+        if (rejection7DaysChart) rejection7DaysChart.destroy();
+
+        rejection7DaysChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Count',
+              data: values,
+              backgroundColor: colors,
+              borderColor: '#fff',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            scales: {
+              y: { beginAtZero: true, precision: 0 },
+              x: { ticks: { autoSkip: false }, title: { display: true, text: 'Reasons' } }
+            },
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            }
+          }
+        });
+      } catch (err) {
+        console.error('Error fetching 7 days rejection:', err);
+      }
+    }
+
+    function generateColors(count) {
+      const baseColors = [
+        '#3B82F6', '#10B981', '#EF4444', '#F59E0B', '#8B5CF6',
+        '#EC4899', '#22D3EE', '#A78BFA', '#F97316', '#6EE7B7'
+      ];
+      const colors = [];
+      for(let i = 0; i < count; i++) {
+        colors.push(baseColors[i % baseColors.length]);
+      }
+      return colors;
+    }
+
+    async function loadDashboard() {
+      await Promise.all([
+        fetchSummary(),
+        fetchModelMix(),
+        fetchHourlyProduction(),
+        fetchRejectionToday(),
+        fetchRejection7Days()
+      ]);
+    }
+
+    loadDashboard();
+
+    setInterval(loadDashboard, 60000);
+
+    // ----------------- Model Master JS -----------------
+    const API_URL = `${API_BASE}/modelMasterData`;
+    const tbody = document.getElementById("table-body");
+    const modal = document.getElementById("form-modal");
+    const form = document.getElementById("data-form");
+    const formTitle = document.getElementById("form-title");
+    const sDataContainer = document.getElementById("s-data");
+    const addSBtn = document.getElementById("add-s-btn");
+    let isEdit = false, editId = null;
+
+    const fetchModelData = async () => {
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        tbody.innerHTML = data
+          .map(d => `
+            <tr class="border-t border-gray-300">
+              <td class="px-3 py-2 border border-gray-300">${d.code}</td>
+              <td class="px-3 py-2 border border-gray-300">${d.brandname}</td>
+              <td class="px-3 py-2 border border-gray-300">${d.model_name}</td>
+              <td class="px-3 py-2 border border-gray-300">${d.motor_name}</td>
+              <td class="px-3 py-2 border border-gray-300">${d.motor_rating}</td>
+              <td class="px-3 py-2 border border-gray-300 space-x-2">
+                <button onclick='editData(${JSON.stringify(d)})' class="text-blue-600 hover:underline">Edit</button>
+                <button onclick="deleteData(${d.id})" class="text-red-600 hover:underline">Delete</button>
+              </td>
+            </tr>
+          `).join("");
+      } catch {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-red-600">Failed to load data</td></tr>`;
+      }
+    };
+
+    const openForm = () => {
+      isEdit = false;
+      editId = null;
+      form.reset();
+      formTitle.innerText = "Add Model";
+      sDataContainer.innerHTML = "";
+      addSField();
+
+      document.getElementById("code").classList.remove("hidden");
+      document.getElementById("code-display").classList.add("hidden");
+      form.elements["code"].disabled = false;
+
+      modal.classList.remove("hidden");
+      setTimeout(() => form.elements["code"].focus(), 300);
+    };
+
+    const closeForm = () => {
+      modal.classList.add("hidden");
+    };
+
+    const addSField = () => {
+      const index = sDataContainer.children.length + 1;
+      if (index > 9) {
+        alert("Maximum 9 S parameters allowed");
+        addSBtn.disabled = true;
+        return;
+      }
+      addSBtn.disabled = false;
+
+      const label = `S${index}`;
+      const block = document.createElement("div");
+      block.className = "border rounded bg-gray-50";
+
+      block.innerHTML = `
+        <div class="collapse-header flex justify-between items-center p-3 cursor-pointer bg-blue-50 hover:bg-blue-100 rounded-t">
+          <span class="font-medium">${label} Parameters</span>
+          <div>
+            <button type="button" class="text-red-600 hover:text-red-800 font-semibold text-lg mr-4" onclick="confirmRemove(this)">×</button>
+            <button type="button" class="text-blue-600 hover:text-blue-800 font-semibold text-lg" onclick="toggleCollapse(this)">▼</button>
+          </div>
+        </div>
+        <div class="collapse-content p-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-sm text-gray-700 mb-1" for="s${index}_current_ll">${label} Current LL</label>
+            <input name="s${index}_current_ll" id="s${index}_current_ll" placeholder="${label} Current LL" class="border rounded px-4 py-2 w-full text-sm" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-700 mb-1" for="s${index}_current_ul">${label} Current UL</label>
+            <input name="s${index}_current_ul" id="s${index}_current_ul" placeholder="${label} Current UL" class="border rounded px-4 py-2 w-full text-sm" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-700 mb-1" for="s${index}_power_ll">${label} Power LL</label>
+            <input name="s${index}_power_ll" id="s${index}_power_ll" placeholder="${label} Power LL" class="border rounded px-4 py-2 w-full text-sm" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-700 mb-1" for="s${index}_power_ul">${label} Power UL</label>
+            <input name="s${index}_power_ul" id="s${index}_power_ul" placeholder="${label} Power UL" class="border rounded px-4 py-2 w-full text-sm" />
+          </div>
+        </div>
+      `;
+      sDataContainer.appendChild(block);
+      updateSIndices();
+      openCollapse(block.querySelector(".collapse-content"));
+    };
+
+    const confirmRemove = (btn) => {
+      if (confirm("Are you sure you want to remove this S parameter?")) {
+        btn.closest("div.border").remove();
+        updateSIndices();
+        addSBtn.disabled = sDataContainer.children.length >= 9;
+      }
+    };
+
+    const toggleCollapse = (btn) => {
+      const content = btn.closest("div.border").querySelector(".collapse-content");
+      if (content.classList.contains("open")) {
+        closeCollapse(content);
+        btn.innerText = "▼";
+      } else {
+        openCollapse(content);
+        btn.innerText = "▲";
+      }
+    };
+    const openCollapse = (el) => el.classList.add("open");
+    const closeCollapse = (el) => el.classList.remove("open");
+
+    const updateSIndices = () => {
+      const blocks = sDataContainer.children;
+      [...blocks].forEach((block, idx) => {
+        const i = idx + 1;
+        block.querySelector(".collapse-header span").innerText = `S${i} Parameters`;
+        const inputs = block.querySelectorAll("input");
+        const labels = block.querySelectorAll("label");
+
+        inputs[0].name = `s${i}_current_ll`;
+        inputs[0].id = `s${i}_current_ll`;
+        inputs[0].placeholder = `S${i} Current LL`;
+        labels[0].setAttribute("for", `s${i}_current_ll`);
+        labels[0].innerText = `S${i} Current LL`;
+
+        inputs[1].name = `s${i}_current_ul`;
+        inputs[1].id = `s${i}_current_ul`;
+        inputs[1].placeholder = `S${i} Current UL`;
+        labels[1].setAttribute("for", `s${i}_current_ul`);
+        labels[1].innerText = `S${i} Current UL`;
+
+        inputs[2].name = `s${i}_power_ll`;
+        inputs[2].id = `s${i}_power_ll`;
+        inputs[2].placeholder = `S${i} Power LL`;
+        labels[2].setAttribute("for", `s${i}_power_ll`);
+        labels[2].innerText = `S${i} Power LL`;
+
+        inputs[3].name = `s${i}_power_ul`;
+        inputs[3].id = `s${i}_power_ul`;
+        inputs[3].placeholder = `S${i} Power UL`;
+        labels[3].setAttribute("for", `s${i}_power_ul`);
+        labels[3].innerText = `S${i} Power UL`;
+      });
+    };
+
+    function editData(data) {
+      isEdit = true;
+      editId = data.id;
+      formTitle.innerText = "Edit Model";
+
+      form.reset();
+      sDataContainer.innerHTML = "";
+      document.getElementById("code").classList.add("hidden");
+      const codeDisplay = document.getElementById("code-display");
+      codeDisplay.innerText = data.code;
+      codeDisplay.classList.remove("hidden");
+
+      form.elements["code"].disabled = true;
+      form.elements["brandname"].value = data.brandname || "";
+      form.elements["model_name"].value = data.model_name || "";
+      form.elements["motor_name"].value = data.motor_name || "";
+      form.elements["motor_rating"].value = data.motor_rating || "";
+
+      // Fill S params dynamically
+      const sKeys = Object.keys(data).filter(k => /^s\d+_/.test(k));
+      const sIndices = new Set(sKeys.map(k => parseInt(k.match(/^s(\d+)_/)[1])));
+      const maxS = Math.max(...sIndices, 0);
+
+      for (let i = 1; i <= maxS; i++) {
+        addSField();
+      }
+
+      // Now fill values
+      for (const key of sKeys) {
+        const input = form.elements[key];
+        if (input) input.value = data[key] ?? "";
+      }
+
+      modal.classList.remove("hidden");
+      setTimeout(() => form.elements["brandname"].focus(), 300);
+    }
+
+    async function deleteData(id) {
+      if (!confirm("Are you sure to delete this model?")) return;
+      try {
+        await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+        fetchModelData();
+      } catch (err) {
+        alert("Delete failed.");
+      }
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const body = {};
+      formData.forEach((v, k) => {
+        body[k] = v.trim();
+      });
+      if (isEdit) {
+        body.id = editId;
+      }
+
+      try {
+        const method = isEdit ? "PUT" : "POST";
+        const res = await fetch(API_URL, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error("Failed to save data");
+        closeForm();
+        fetchModelData();
+      } catch {
+        alert("Save failed");
+      }
+    });
+
+    // Initialize on load
+    fetchModelData();
+
+    // ----------------- Log Book JS -----------------
+    const pageSize = 20;
+    let currentPage = 1;
+    let originalData = [];
+    let filteredData = [];
+
+    function formatIST(dateStr) {
+      const date = new Date(dateStr);
+      return date.toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      });
+    }
+
+    async function fetchLogBookData() {
+      try {
+        const res = await fetch(`${API_BASE}/testdata`);
+        const json = await res.json();
+        originalData = json.map((item) => ({
+          Timestamp: formatIST(item.timeStamp),
+          rawTimestamp: item.timeStamp,
+          "Product SN": item.productSerialNumber || "-",
+          "ECR Status": item.ecrStatus || "-",
+          "HV Status": item.hvStatus || "-",
+          "IR Status": item.irStatus || "-",
+          "LC Status": item.lcStatus || "-",
+          "S1 Volt": item.s1Volt || "-",
+          "S1 Current": item.s1Current || "-",
+          "Power S1": item.powerS1 || "-",
+          "S1 Status": item.s1Status || "-",
+          "Final Judge": item.finalJudge || "_",
+        }));
+        filteredData = [...originalData];
+        currentPage = 1;
+        renderTable();
+      } catch (err) {
+        console.error("Fetch error:", err);
+      }
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById("tableBody");
+      const start = (currentPage - 1) * pageSize;
+      const paginated = filteredData.slice(start, start + pageSize);
+
+      tbody.innerHTML = "";
+      paginated.forEach((row) => {
+        const tr = document.createElement("tr");
+        tr.className = paginated.indexOf(row) % 2 === 0 ? "bg-white" : "bg-blue-50";
+
+        for (const key in row) {
+          if (key === "rawTimestamp") continue;
+          const td = document.createElement("td");
+          td.className = "px-4 py-2 whitespace-nowrap text-left text-gray-700";
+          td.textContent = row[key];
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      });
+      updatePagination();
+    }
+
+    function updatePagination() {
+      const totalPages = Math.ceil(filteredData.length / pageSize);
+      document.getElementById("pagination").innerHTML =
+        `Page ${currentPage} of ${totalPages} ` +
+        (currentPage > 1
+          ? `<button onclick="changePage(${currentPage - 1})" class="text-green-700 hover:underline ml-2">Prev</button>`
+          : "") +
+        (currentPage < totalPages
+          ? ` <button onclick="changePage(${currentPage + 1})" class="text-green-700 hover:underline ml-2">Next</button>`
+          : "");
+    }
+
+    function changePage(page) {
+      currentPage = page;
+      renderTable();
+    }
+
+    function searchTable() {
+      const input = document.getElementById("searchInput").value.toLowerCase();
+      filteredData = originalData.filter((row) =>
+        Object.values(row).some((val) =>
+          String(val).toLowerCase().includes(input)
+        )
+      );
+      currentPage = 1;
+      renderTable();
+    }
+
+    function applyFilters() {
+      const fromDateValue = document.getElementById("fromDate").value;
+      const toDateValue = document.getElementById("toDate").value;
+
+      if (!fromDateValue && !toDateValue) {
+        filteredData = [...originalData];
+      } else {
+        const from = fromDateValue ? new Date(fromDateValue) : null;
+        const to = toDateValue ? new Date(new Date(toDateValue).getTime() + 86400000) : null;
+
+        filteredData = originalData.filter((row) => {
+          const date = new Date(row.rawTimestamp);
+          if (from && date < from) return false;
+          if (to && date >= to) return false;
+          return true;
+        });
+      }
+
+      // Apply current search filter as well
+      const searchInput = document.getElementById("searchInput").value.toLowerCase();
+      if (searchInput) {
+        filteredData = filteredData.filter((row) =>
+          Object.values(row).some((val) =>
+            String(val).toLowerCase().includes(searchInput)
+          )
+        );
+      }
+
+      currentPage = 1;
+      renderTable();
+    }
+
+    function exportToExcel() {
+      const headers = [
+        "Timestamp", "Product SN", "ECR Status",
+        "HV Status", "IR Status", "LC Status", "S1 Volt", "S1 Current",
+        "Power S1", "S1 Status", "Final Judge"
+      ];
+
+      const data = [
+        headers,
+        ...filteredData.map(row => headers.map(h => row[h] ?? "-"))
+      ];
+
+      const worksheet = XLSX.utils.aoa_to_sheet(data);
+
+      // --- Blue Theme Styling ---
+      const headerColor = "2563EB"; // Tailwind blue-600
+      const stripeColor = "DBEAFE"; // Tailwind blue-100
+      const textColor = "1E3A8A";   // Tailwind blue-900
+
+      // Style headers
+      headers.forEach((_, colIdx) => {
+        const cellAddr = XLSX.utils.encode_cell({ r: 0, c: colIdx });
+        const cell = worksheet[cellAddr];
+        if (cell) {
+          cell.s = {
+            font: { bold: true, color: { rgb: "FFFFFF" } },
+            fill: { fgColor: { rgb: headerColor } },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: {
+              top: { style: "thin", color: { rgb: headerColor } },
+              bottom: { style: "thin", color: { rgb: headerColor } }
+            }
+          };
+        }
+      });
+
+      // Style data rows with blue stripe
+      for (let r = 1; r < data.length; r++) {
+        for (let c = 0; c < headers.length; c++) {
+          const cellAddr = XLSX.utils.encode_cell({ r, c });
+          const cell = worksheet[cellAddr];
+          if (cell) {
+            cell.s = {
+              font: { color: { rgb: textColor } },
+              alignment: { vertical: "center", horizontal: "left" },
+              fill: r % 2 === 1 ? { fgColor: { rgb: stripeColor } } : undefined,
+              border: {
+                bottom: { style: "thin", color: { rgb: "CCCCCC" } }
+              }
+            };
+          }
+        }
+      }
+
+      worksheet['!cols'] = headers.map(h => ({ wch: Math.max(15, h.length + 4) }));
+      worksheet['!freeze'] = { ySplit: 1 };
+      worksheet['!autofilter'] = {
+        ref: XLSX.utils.encode_range({
+          s: { r: 0, c: 0 },
+          e: { r: 0, c: headers.length - 1 }
+        })
+      };
+
+      const metadataSheet = XLSX.utils.aoa_to_sheet([
+        ["Log Book Export"],
+        ["Generated On:", new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })]
+      ]);
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Log Book");
+      XLSX.utils.book_append_sheet(workbook, metadataSheet, "Metadata");
+
+      XLSX.writeFile(workbook, "Log_Book.xlsx");
+    }
+
+    // Fetch initial Log Book data every 60s
+    fetchLogBookData();
+    setInterval(fetchLogBookData, 60000);
+  </script>
+</body>
+</html>

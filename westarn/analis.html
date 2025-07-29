@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Logbook Shift Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      overflow-y: auto;
+    }
+    .chart-container {
+      position: relative;
+      height: 340px;
+      width: 100%;
+    
+    }
+    canvas {
+      width: 100% !important;
+      height: 90% !important; 
+    }
+  </style>
+</head>
+<body class="bg-gray-100 p-4 font-sans">
+
+<!-- Header -->
+<header class="bg-white shadow-md rounded-lg shadow w-full p-4 flex items-center justify-between">
+  <!-- Left Spacer for Centering -->
+  <div class="w-[120px] hidden md:block"></div>
+
+  <!-- Center Title -->
+  <h1 class="text-2xl md:text-3xl font-bold text-gray-800 text-center flex-grow">
+    Westan Electrical Appliances
+  </h1>
+
+  <!-- Right DateTime -->
+  <div id="datetime" class="text-gray-600 text-lg font-medium w-[220px] text-right"></div>
+</header>
+
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 m-4">
+    <div class="bg-white rounded-lg shadow p-4 text-center">
+      <h2 class="text-lg font-semibold mb-2">Running Model</h2>
+      <p id="runningModel" class="text-2xl font-bold">-</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 text-center">
+      <h2 class="text-lg font-semibold mb-2">Total Tested</h2>
+      <p id="totalTested" class="text-2xl font-bold">-</p>
+    </div>
+    <div class="bg-green-100 rounded-lg shadow p-4 text-center">
+      <h2 class="text-lg font-semibold mb-2">Pass</h2>
+      <p id="passCount" class="text-2xl font-bold text-green-700">-</p>
+    </div>
+    <div class="bg-red-100 rounded-lg shadow p-4 text-center">
+      <h2 class="text-lg font-semibold mb-2">Fail</h2>
+      <p id="failCount" class="text-2xl font-bold text-red-700">-</p>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- Model Mix Pie Chart -->
+    <div class="bg-white p-4 rounded-lg shadow chart-container">
+      <h3 class="text-xl font-semibold mb-4">Model Mix (Top 10)</h3>
+      <canvas id="modelMixChart"></canvas>
+    </div>
+
+    <!-- Hourly Production Bar Chart -->
+    <div class="bg-white p-4 rounded-lg shadow chart-container">
+      <h3 class="text-xl font-semibold mb-4">Hourly Production (8am–8pm)</h3>
+      <canvas id="hourlyProductionChart"></canvas>
+    </div>
+
+    <!-- Today's Rejection Bar Chart -->
+    <div class="bg-white p-4 rounded-lg shadow chart-container">
+      <h3 class="text-xl font-semibold mb-4">Today's Rejection Reasons</h3>
+      <canvas id="rejectionTodayChart"></canvas>
+    </div>
+
+    <!-- Last 7 Days Rejection Bar Chart -->
+    <div class="bg-white p-4 rounded-lg shadow chart-container">
+      <h3 class="text-xl font-semibold mb-4">Rejection Reasons (Last 7 Days)</h3>
+      <canvas id="rejection7DaysChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://127.0.0.1:1880';
+
+    // Elements for summary
+    const runningModelEl = document.getElementById('runningModel');
+    const totalTestedEl = document.getElementById('totalTested');
+    const passCountEl = document.getElementById('passCount');
+    const failCountEl = document.getElementById('failCount');
+
+    let modelMixChart, hourlyProductionChart, rejectionTodayChart, rejection7DaysChart;
+    function updateDateTime() {
+    const now = new Date();
+    const options = {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false // 24-hour format
+    };
+    const dateTimeString = now.toLocaleString('en-IN', options);
+    document.getElementById('datetime').textContent = dateTimeString;
+  }
+
+  updateDateTime(); // initial
+  setInterval(updateDateTime, 1000); // every second
+
+    async function fetchSummary() {
+      try {
+        const res = await fetch(`${API_BASE}/logbook/shift/summary`);
+        const data = await res.json();
+        runningModelEl.textContent = data.runningModel || '-';
+        totalTestedEl.textContent = data.totalTested || 0;
+        passCountEl.textContent = data.pass || 0;
+        failCountEl.textContent = data.fail || 0;
+      } catch (err) {
+        console.error('Error fetching summary:', err);
+      }
+    }
+
+    async function fetchModelMix() {
+      try {
+        const res = await fetch(`${API_BASE}/logbook/shift/modelmix`);
+        const data = await res.json();
+        const ctx = document.getElementById('modelMixChart').getContext('2d');
+        if (modelMixChart) modelMixChart.destroy();
+
+        const colors = generateColors(data.labels.length);
+
+        modelMixChart = new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels: data.labels,
+            datasets: [{
+              data: data.data,
+              backgroundColor: colors,
+              borderColor: '#fff',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom' }
+            }
+          }
+        });
+      } catch (err) {
+        console.error('Error fetching model mix:', err);
+      }
+    }
+
+    async function fetchHourlyProduction() {
+      try {
+        const res = await fetch(`${API_BASE}/logbook/shift/hourlyproduction`);
+        const data = await res.json();
+        const ctx = document.getElementById('hourlyProductionChart').getContext('2d');
+        if (hourlyProductionChart) hourlyProductionChart.destroy();
+
+        hourlyProductionChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: data.labels,
+            datasets: [{
+              label: 'Produced',
+              data: data.data,
+              backgroundColor: 'rgba(59, 130, 246, 0.7)',
+              borderColor: 'rgba(59, 130, 246, 1)',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            scales: {
+              y: { beginAtZero: true, precision: 0 },
+              x: { title: { display: true, text: 'Time' } }
+            },
+            responsive: true,
+            maintainAspectRatio: false
+          }
+        });
+      } catch (err) {
+        console.error('Error fetching hourly production:', err);
+      }
+    }
+
+    async function fetchRejectionToday() {
+      try {
+        const res = await fetch(`${API_BASE}/logbook/shift/rejection/today`);
+        const data = await res.json();
+
+        const labels = data.map(r => r.label || 'Unknown');
+        const values = data.map(r => r.value || 0);
+        const colors = generateColors(labels.length);
+
+        const ctx = document.getElementById('rejectionTodayChart').getContext('2d');
+        if (rejectionTodayChart) rejectionTodayChart.destroy();
+
+        rejectionTodayChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Count',
+              data: values,
+              backgroundColor: colors,
+              borderColor: '#fff',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            scales: {
+              y: { beginAtZero: true, precision: 0 },
+              x: { ticks: { autoSkip: false }, title: { display: true, text: 'Reasons' } }
+            },
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            }
+          }
+        });
+      } catch (err) {
+        console.error('Error fetching today rejection:', err);
+      }
+    }
+
+    async function fetchRejection7Days() {
+      try {
+        const res = await fetch(`${API_BASE}/logbook/shift/rejection/7days`);
+        const data = await res.json();
+
+        const labels = data.map(r => r.label || 'Unknown');
+        const values = data.map(r => r.value || 0);
+        const colors = generateColors(labels.length);
+
+        const ctx = document.getElementById('rejection7DaysChart').getContext('2d');
+        if (rejection7DaysChart) rejection7DaysChart.destroy();
+
+        rejection7DaysChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Count',
+              data: values,
+              backgroundColor: colors,
+              borderColor: '#fff',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            scales: {
+              y: { beginAtZero: true, precision: 0 },
+              x: { ticks: { autoSkip: false }, title: { display: true, text: 'Reasons' } }
+            },
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            }
+          }
+        });
+      } catch (err) {
+        console.error('Error fetching 7 days rejection:', err);
+      }
+    }
+
+    function generateColors(count) {
+      const baseColors = [
+        '#3B82F6', '#10B981', '#EF4444', '#F59E0B', '#8B5CF6',
+        '#EC4899', '#22D3EE', '#A78BFA', '#F97316', '#6EE7B7'
+      ];
+      const colors = [];
+      for(let i = 0; i < count; i++) {
+        colors.push(baseColors[i % baseColors.length]);
+      }
+      return colors;
+    }
+
+    async function loadDashboard() {
+      await Promise.all([
+        fetchSummary(),
+        fetchModelMix(),
+        fetchHourlyProduction(),
+        fetchRejectionToday(),
+        fetchRejection7Days()
+      ]);
+    }
+
+    loadDashboard();
+
+    setInterval(loadDashboard, 60000);
+  </script>
+</body>
+</html>

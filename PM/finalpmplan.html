@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Preventive Maintenance Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #1e293b;
+      color: #f1f5f9;
+    }
+
+    h1 {
+      margin: 0;
+      background: #334155;
+      color: white;
+      font-weight: 900;
+      font-size: 2.5rem;
+      padding: 0.3rem;
+      text-align: center;
+    }
+
+    .pm-status-container {
+      display: flex;
+      justify-content: space-around;
+      background: #1e293b;
+      color: white;
+      font-weight: 600;
+      font-size: 1rem;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      flex-wrap: wrap;
+      padding: 0.5rem;
+    }
+
+    .pm-status {
+      flex: 1;
+      min-width: 280px;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      margin-left: 0.5rem;
+      background: #1e293b;
+      color: white;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .pm-status-header {
+      background: #334155;
+      border-bottom: 1px solid #475569;
+      border-radius: 8px 8px 0 0;
+      text-align: center;
+      font-weight: 700;
+      padding: 0.5rem 0;
+    }
+
+    .pm-status-body {
+      display: flex;
+      background: #1e293b;
+      text-align: center;
+    }
+
+    .status-block {
+      flex: 1;
+      border-left: 1px solid #64748b;
+      padding: 0.5rem;
+      font-weight: 700;
+      font-size: 1.15rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .status-block.center-content {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .adherence-circle {
+      width: 60px;
+      height: 60px;
+    }
+
+    .adherence-subtext {
+      font-size: 0.65rem;
+      color: #60a5fa;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+
+    .pm-plan {
+      margin-top: 1rem;
+      background: #1e293b;
+      padding: 1rem;
+      border-radius: 8px;
+      border: 1px solid #334155;
+    }
+
+    .pm-plan-title {
+      font-weight: 600;
+      font-size: 2.15rem;
+      margin-bottom: 0.5rem;
+      color: white;
+      text-align: center;
+      text-transform: uppercase;
+      background: #334155;
+      padding: 0.5rem;
+    }
+
+    .tables-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding: 0.5rem;
+      border: 1px solid #334155;
+    }
+
+    table {
+      background: #1e293b;
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      color: #f1f5f9;
+      min-width: 280px;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+      border: 5px solid #334155;
+      table-layout: fixed;
+    }
+
+    th, td {
+      padding: 0.35rem 0.6rem;
+      border: 1px solid #475569;
+      text-align: center;
+    }
+
+    th {
+      border-bottom: 2px solid #60a5fa;
+      text-transform: uppercase;
+      font-size: 0.9rem;
+      background: #334155;
+    }
+
+    td.status-done {
+      color: #4ade80;
+      font-weight: bold;
+    }
+
+    td.status-pending {
+      color: #f87171;
+      font-weight: bold;
+    }
+
+    td.reason-cell {
+      font-size: 0.8rem;
+      text-align: left;
+    }
+
+    .table-section-title {
+      background: #334155;
+      color: white;
+      font-weight: 700;
+      text-align: center;
+      padding: 0.4rem;
+      text-transform: uppercase;
+      font-size: 1rem;
+      border-radius: 6px 6px 0 0;
+      margin-bottom: 0.3rem;
+    }
+
+    .tables-container > div {
+      flex: 1;
+      min-width: 320px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Preventive Maintenance Dashboard</h1>
+  <section class="pm-status-container" id="pm-status-container"></section>
+  <section class="pm-plan">
+    <div class="pm-plan-title">PM PLAN</div>
+    <div class="tables-container" id="tables-container"></div>
+  </section>
+
+  <script>
+    const baseURL = "http://10.0.156.2:1880";
+
+    // Fetch and render PM Status
+    async function loadPmStatus() {
+      const res = await fetch(`${baseURL}/getPmStatus`);
+      const data = await res.json();
+      const container = document.getElementById("pm-status-container");
+      container.innerHTML = "";
+
+      data.forEach(item => {
+        const adherence = Math.round((item.actual / item.plan) * 100);
+        const block = document.createElement('div');
+        block.className = 'pm-status';
+        block.innerHTML = `
+          <div class="pm-status-header">${item.title}</div>
+          <div class="pm-status-body">
+            <div class="status-block">PLAN<br />${item.plan}</div>
+            <div class="status-block">ACTUAL<br />${item.actual}</div>
+            <div class="status-block center-content">
+              <canvas class="adherence-circle" data-adherence="${adherence}"></canvas>
+              <div class="adherence-subtext">ADHERENCE</div>
+            </div>
+          </div>`;
+        container.appendChild(block);
+      });
+
+      drawGauges();
+    }
+
+    // Fetch and render PM Tables
+    async function loadPmTableData() {
+  const res = await fetch(`${baseURL}/getPmTableData`);
+  const data = await res.json();
+  const container = document.getElementById("tables-container");
+  container.innerHTML = "";
+
+  Object.entries(data).forEach(([title, rows]) => {
+    if (title.includes("Quarterly") || title.includes("Yearly")) return; // ❌ Skip unwanted tables
+
+    const wrapper = document.createElement("div");
+    const isReasonTable = title === "Non Adherence Reason";
+
+    const titleDiv = document.createElement("div");
+    titleDiv.className = "table-section-title";
+    titleDiv.textContent = title;
+    wrapper.appendChild(titleDiv);
+
+    const table = document.createElement("table");
+    let thead = `<thead><tr>
+      <th>Task ID</th>
+      <th>Machine</th>
+      <th>Scheduled</th>
+      <th>${isReasonTable ? "Reason" : "Status"}</th>
+    </tr></thead>`;
+    let tbody = "<tbody>";
+
+    rows.forEach(row => {
+      if (isReasonTable) {
+        tbody += `<tr>
+          <td>${row.taskId}</td>
+          <td>${row.machine}</td>
+          <td>${row.date}</td>
+          <td class="reason-cell">${row.reason}</td>
+        </tr>`;
+      } else {
+        const cls = row.status === "Done" ? "status-done" : "status-pending";
+        tbody += `<tr>
+          <td>${row.taskId}</td>
+          <td>${row.machine}</td>
+          <td>${row.date}</td>
+          <td class="${cls}">${row.status}</td>
+        </tr>`;
+      }
+    });
+
+    tbody += "</tbody>";
+    table.innerHTML = thead + tbody;
+    wrapper.appendChild(table);
+    container.appendChild(wrapper);
+  });
+}
+
+    // Render Doughnut Charts
+    function drawGauges() {
+      const CenterTextPlugin = {
+        id: 'centerText',
+        beforeDraw(chart) {
+          const { width, height, ctx } = chart;
+          const adherence = chart.config.data.datasets[0].data[0];
+          ctx.save();
+          ctx.font = 'bold 14px Arial';
+          ctx.fillStyle = '#fff';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`${adherence}%`, width / 2, height / 2);
+        }
+      };
+
+      document.querySelectorAll('.adherence-circle').forEach(canvas => {
+        const adherence = parseInt(canvas.dataset.adherence, 10);
+        new Chart(canvas, {
+          type: 'doughnut',
+          data: {
+            datasets: [{
+              data: [adherence, 100 - adherence],
+              backgroundColor: ['#faa613', '#394861'],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            cutout: '70%',
+            responsive: false,
+            plugins: {
+              tooltip: { enabled: false },
+              legend: { display: false }
+            }
+          },
+          plugins: [CenterTextPlugin]
+        });
+      });
+    }
+
+    // Load everything on page load
+    loadPmStatus();
+    loadPmTableData();
+  </script>
+</body>
+</html>

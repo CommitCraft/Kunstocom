@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Manage Users</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-6 bg-white text-gray-800">
+  <h2 class="text-3xl font-bold mb-4 border-b border-green-400 pb-2">Manage Users</h2>
+
+  <form id="add-user-form" class="flex flex-col space-y-4 mb-6 max-w-5xl">
+    <div class="flex flex-wrap gap-3">
+      <input id="user-username" type="text" placeholder="Username" required class="border rounded px-3 py-2 min-w-[140px]" />
+      <input id="user-password" type="password" placeholder="Password" class="border rounded px-3 py-2 min-w-[140px]" />
+      <select id="user-role" required class="border rounded px-3 py-2 min-w-[140px]"></select>
+    </div>
+    <div>
+      <label class="block mb-1 font-semibold text-green-700">Assign Pages:</label>
+      <div id="user-pages" class="flex flex-wrap gap-4 border rounded p-3 bg-white max-h-40 overflow-y-auto"></div>
+    </div>
+    <div class="flex gap-3">
+      <button type="submit" id="userAddBtn" class="bg-green-600 text-white px-5 py-2 rounded">Add User</button>
+    </div>
+  </form>
+
+  <table class="w-full max-w-6xl border border-gray-300 rounded text-left">
+    <thead class="bg-green-100">
+      <tr>
+        <th class="px-4 py-2 border-b">ID</th>
+        <th class="px-4 py-2 border-b">Username</th>
+        <th class="px-4 py-2 border-b">Role</th>
+        <th class="px-4 py-2 border-b">Pages Assigned</th>
+        <th class="px-4 py-2 border-b">Actions</th>
+      </tr>
+    </thead>
+    <tbody id="users-table-body" class="bg-white"></tbody>
+  </table>
+
+  <script>
+    const API_BASE = 'http://127.0.0.1:1880/api';
+    let allPages = [];
+
+    document.getElementById('add-user-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('user-username').value.trim();
+      const password = document.getElementById('user-password').value.trim();
+      const role_id = document.getElementById('user-role').value;
+      const page_ids = [...document.querySelectorAll('#user-pages input[type=checkbox]:checked')].map(cb => parseInt(cb.value));
+
+      if (!username || !role_id) return alert('Username and role are required');
+
+      try {
+        await fetch(`${API_BASE}/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, role_id, page_ids })
+        });
+        document.getElementById('user-username').value = '';
+        document.getElementById('user-password').value = '';
+        loadUsers();
+      } catch (err) {
+        alert('Failed to add user');
+      }
+    });
+
+    async function loadUsers() {
+      const res = await fetch(`${API_BASE}/users`);
+      const users = await res.json();
+      const tbody = document.getElementById('users-table-body');
+      tbody.innerHTML = '';
+
+      users.forEach(u => {
+        const pages = u.pages?.map(p => p.name).join(', ') || '';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="border px-4 py-2">${u.id}</td>
+          <td class="border px-4 py-2">${u.username}</td>
+          <td class="border px-4 py-2">${u.role}</td>
+          <td class="border px-4 py-2">${pages}</td>
+          <td class="border px-4 py-2">
+            <button onclick="deleteUser(${u.id})" class="text-red-600 hover:underline">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function deleteUser(id) {
+      if (!confirm('Delete this user?')) return;
+      await fetch(`${API_BASE}/users/${id}`, { method: 'DELETE' });
+      loadUsers();
+    }
+
+    async function loadRolesAndPages() {
+      const [rolesRes, pagesRes] = await Promise.all([
+        fetch(`${API_BASE}/roles`),
+        fetch(`${API_BASE}/pages`)
+      ]);
+      const roles = await rolesRes.json();
+      allPages = await pagesRes.json();
+
+      const roleSelect = document.getElementById('user-role');
+      roleSelect.innerHTML = '<option value="">Select role</option>';
+      roles.forEach(role => {
+        const option = document.createElement('option');
+        option.value = role.id;
+        option.textContent = role.name;
+        roleSelect.appendChild(option);
+      });
+
+      const pageContainer = document.getElementById('user-pages');
+      pageContainer.innerHTML = '';
+      allPages.forEach(page => {
+        const label = document.createElement('label');
+        label.className = 'flex items-center gap-2';
+        label.innerHTML = `
+          <input type="checkbox" value="${page.id}" class="text-green-600" />
+          <span>${page.name}</span>
+        `;
+        pageContainer.appendChild(label);
+      });
+    }
+
+    loadRolesAndPages();
+    loadUsers();
+  </script>
+</body>
+</html>

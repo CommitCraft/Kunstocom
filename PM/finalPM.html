@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Preventive Maintenance Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #1e293b;
+      color: #f1f5f9;
+    }
+
+    h1 {
+      margin: 0;
+      background: #334155;
+      color: white;
+      font-weight: 900;
+      font-size: 2.5rem;
+      padding: 0.3rem;
+      text-align: center;
+    }
+
+    .pm-status-container {
+      display: flex;
+      justify-content: space-around;
+      background: #1e293b;
+      color: white;
+      font-weight: 600;
+      font-size: 1rem;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      flex-wrap: wrap;
+      padding: 0.5rem;
+    }
+
+    .pm-status {
+      flex: 1;
+      min-width: 280px;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      margin-left: 0.5rem;
+      background: #1e293b;
+      color: white;
+      font-weight: 600;
+      font-size: 1rem;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .pm-status-header {
+      background: #334155;
+      border-bottom: 1px solid #475569;
+      border-radius: 8px 8px 0 0;
+      text-align: center;
+      font-weight: 700;
+      padding: 0.5rem 0;
+    }
+
+    .pm-status-body {
+      display: flex;
+      background: #1e293b;
+      text-align: center;
+      flex-wrap: nowrap;
+    }
+
+    .status-block {
+      flex: 1;
+      border-left: 1px solid #64748b;
+      padding: 0.5rem;
+      font-weight: 700;
+      font-size: 1.15rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .status-block.center-content {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .adherence-circle {
+      width: 60px;
+      height: 60px;
+    }
+
+    .adherence-subtext {
+      font-size: 0.65rem;
+      color: #60a5fa;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-top: 4px;
+      user-select: none;
+      text-align: center;
+    }
+
+    .pm-plan {
+      margin-top: 1rem;
+      background: #1e293b;
+      color: white;
+      padding: 1rem;
+      border-radius: 8px;
+      border: 1px solid #334155;
+    }
+
+    .pm-plan-title {
+      font-weight: 600;
+      font-size: 2.15rem;
+      margin-bottom: 0.5rem;
+      color: white;
+      text-align: center;
+      text-transform: uppercase;
+      background: #334155;
+      padding: 0.5rem;
+    }
+
+    .tables-container {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      overflow-x: auto;
+      padding: 0.5rem;
+      border: 1px solid #334155;
+    }
+
+    table {
+      background: #1e293b;
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      color: #f1f5f9;
+      min-width: 280px;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      margin-bottom: 1rem;
+      border: 5px solid #334155;
+      table-layout: fixed;
+    }
+
+    th, td {
+      padding: 0.35rem 0.6rem;
+      border: 1px solid #475569;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    th {
+      border-bottom: 2px solid #60a5fa;
+      text-transform: uppercase;
+      font-size: 0.9rem;
+      background: #334155;
+    }
+
+    td {
+      font-weight: 400;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    td.status-done {
+      color: #4ade80;
+      font-weight: 700;
+    }
+
+    td.status-pending {
+      color: #f87171;
+      font-weight: 700;
+    }
+
+    td.reason-cell {
+      font-weight: 400;
+      font-size: 0.8rem;
+      white-space: normal;
+      text-align: left;
+      padding-left: 0.6rem;
+    }
+
+    .tables-container > div {
+      flex: 1;
+      min-width: 320px;
+    }
+
+    .table-section-title {
+      background: #334155;
+      color: white;
+      font-weight: 700;
+      text-align: center;
+      padding: 0.4rem;
+      text-transform: uppercase;
+      font-size: 1rem;
+      border-radius: 6px 6px 0 0;
+      margin-bottom: 0.3rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Preventive Maintenance Dashboard</h1>
+
+  <section class="pm-status-container" id="pm-status-container"></section>
+
+  <section class="pm-plan">
+    <div class="pm-plan-title">PM PLAN</div>
+    <div class="tables-container" id="tables-container"></div>
+  </section>
+
+  <script>
+    const pmStatusData = [
+      { title: "WEEKLY PM STATUS", plan: 5, actual: 4 },
+      { title: "MONTHLY PM STATUS", plan: 5, actual: 4 },
+      { title: "QUARTERLY PM STATUS", plan: 5, actual: 4 },
+      { title: "YEARLY PM STATUS", plan: 5, actual: 4 }
+    ];
+
+    const pmTableData = {
+      "Weekly Plan": [
+        { taskId: "PM-1", machine: "IMM-41", date: "10-Aug-25", status: "Done" },
+        { taskId: "PM-2", machine: "IMM-42", date: "14-Aug-25", status: "Pending" },
+        { taskId: "PM-3", machine: "IMM-43", date: "19-Aug-25", status: "Done" },
+        { taskId: "PM-4", machine: "IMM-44", date: "05-Aug-25", status: "Done" }
+      ],
+      "Monthly Plan": [
+        { taskId: "PM-51", machine: "IMM-41", date: "10-Aug-25", status: "Done" },
+        { taskId: "PM-52", machine: "IMM-42", date: "14-Aug-25", status: "Pending" },
+        { taskId: "PM-53", machine: "IMM-43", date: "19-Aug-25", status: "Done" },
+        { taskId: "PM-54", machine: "IMM-44", date: "05-Aug-25", status: "Done" }
+      ],
+      "Non Adherence Reason": [
+        { taskId: "PM-52", machine: "IMM-42", date: "14-Aug-25", reason: "Input by Maintenance" },
+        { taskId: "PM-57", machine: "IMM-47", date: "13-Sep-25", reason: "Power failure" }
+      ]
+    };
+
+    const statusContainer = document.getElementById('pm-status-container');
+    const tablesContainer = document.getElementById('tables-container');
+
+    // Render Status Cards
+    pmStatusData.forEach(item => {
+      const adherence = Math.round((item.actual / item.plan) * 100);
+      const block = document.createElement('div');
+      block.className = 'pm-status';
+      block.innerHTML = `
+        <div class="pm-status-header">${item.title}</div>
+        <div class="pm-status-body">
+          <div class="status-block">PLAN<br />${item.plan}</div>
+          <div class="status-block">ACTUAL<br />${item.actual}</div>
+          <div class="status-block center-content">
+            <canvas class="adherence-circle" data-adherence="${adherence}"></canvas>
+            <div class="adherence-subtext">ADHERENCE</div>
+          </div>
+        </div>
+      `;
+      statusContainer.appendChild(block);
+    });
+
+    // Render Tables
+    Object.keys(pmTableData).forEach(title => {
+      const wrapper = document.createElement('div');
+
+      // Match with pmStatusData
+      const matchedStatus = pmStatusData.find(item =>
+        title.toLowerCase().includes(item.title.toLowerCase().split(' ')[0])
+      );
+
+      if (matchedStatus) {
+        const titleHeading = document.createElement('div');
+        titleHeading.className = 'table-section-title';
+        titleHeading.textContent = matchedStatus.title;
+        wrapper.appendChild(titleHeading);
+      } else {
+        const titleHeading = document.createElement('div');
+        titleHeading.className = 'table-section-title';
+        titleHeading.textContent = title;
+        wrapper.appendChild(titleHeading);
+      }
+
+      const table = document.createElement('table');
+      const isReasonTable = title === "Non Adherence Reason";
+
+      let thead = `<thead><tr>
+        <th>Task ID</th>
+        <th>Machine Name</th>
+        <th>PM Scheduled</th>
+        <th>${isReasonTable ? "Reason" : "Status"}</th>
+      </tr></thead>`;
+
+      let tbody = "<tbody>";
+
+      pmTableData[title].forEach(row => {
+        if (isReasonTable) {
+          tbody += `<tr>
+            <td>${row.taskId}</td>
+            <td>${row.machine}</td>
+            <td>${row.date}</td>
+            <td class="reason-cell">${row.reason}</td>
+          </tr>`;
+        } else {
+          const statusClass = row.status.toLowerCase() === 'done' ? 'status-done' : 'status-pending';
+          tbody += `<tr>
+            <td>${row.taskId}</td>
+            <td>${row.machine}</td>
+            <td>${row.date}</td>
+            <td class="${statusClass}">${row.status}</td>
+          </tr>`;
+        }
+      });
+
+      tbody += "</tbody>";
+      table.innerHTML = thead + tbody;
+      wrapper.appendChild(table);
+      tablesContainer.appendChild(wrapper);
+    });
+
+    // Doughnut Adherence Gauge with Center Text Plugin
+    const CenterTextPlugin = {
+      id: 'centerText',
+      beforeDraw(chart) {
+        const { width, height, ctx } = chart;
+        const adherence = chart.config.data.datasets[0].data[0];
+        ctx.save();
+        ctx.font = 'bold 14px Arial';
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${adherence}%`, width / 2, height / 2);
+      }
+    };
+
+    document.querySelectorAll('.adherence-circle').forEach(canvas => {
+      const adherence = parseInt(canvas.dataset.adherence, 10);
+      new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+          datasets: [{
+            data: [adherence, 100 - adherence],
+            backgroundColor: ['#faa613', '#394861'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          cutout: '70%',
+          responsive: false,
+          plugins: {
+            tooltip: { enabled: false },
+            legend: { display: false }
+          }
+        },
+        plugins: [CenterTextPlugin]
+      });
+    });
+  </script>
+</body>
+</html>

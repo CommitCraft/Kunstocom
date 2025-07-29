@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Model Master Data</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    #form-modal { transition: opacity 0.3s ease; }
+    #form-modal.hidden { opacity: 0; pointer-events: none; }
+    .collapse-header { cursor: pointer; }
+    .collapse-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    .collapse-content.open { max-height: 500px; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #3b82f6;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 8px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 p-6 font-sans text-gray-800">
+  <div class="max-w-screen-xl mx-auto">
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-2xl font-bold">Model Master Data</h1>
+      <button onclick="openForm()" class="bg-blue-600 text-white px-4 py-2 rounded shadow">Add Model</button>
+    </div>
+
+    <table class="w-full text-sm border rounded overflow-x-auto bg-white shadow">
+      <thead class="bg-blue-100 text-blue-900 font-semibold">
+        <tr>
+          <th class="px-3 py-2">ID</th>
+          <th class="px-3 py-2">Code</th>
+          <th class="px-3 py-2">Brand</th>
+          <th class="px-3 py-2">Model</th>
+          <th class="px-3 py-2">Motor</th>
+          <th class="px-3 py-2">Rating</th>
+          <th class="px-3 py-2">LVS Limit</th>
+          <th class="px-3 py-2">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="table-body" class="text-gray-700"></tbody>
+    </table>
+  </div>
+
+  <!-- Modal -->
+  <div id="form-modal" class="fixed inset-0 hidden bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div class="bg-white p-6 rounded-2xl shadow-xl w-[95%] max-w-6xl max-h-[90vh] overflow-y-auto">
+      <h2 id="form-title" class="text-2xl font-bold mb-6 text-blue-800 border-b pb-2">Add Model</h2>
+      <form id="data-form" class="space-y-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <input name="code" placeholder="Code" required class="border rounded px-4 py-2 w-full text-sm" />
+          <input name="brandname" placeholder="Brand" required class="border rounded px-4 py-2 w-full text-sm" />
+          <input name="model_name" placeholder="Model Name" required class="border rounded px-4 py-2 w-full text-sm" />
+          <input name="motor_name" placeholder="Motor Name" class="border rounded px-4 py-2 w-full text-sm" />
+          <input name="motor_rating" placeholder="Motor Rating" class="border rounded px-4 py-2 w-full text-sm" />
+          <input name="lvsLimit" placeholder="LVS Limit" class="border rounded px-4 py-2 w-full text-sm" />
+        </div>
+
+        <div>
+          <h3 class="text-lg font-semibold text-blue-700 mb-4">S1–S9 Parameters</h3>
+          <div id="s-data" class="space-y-4"></div>
+          <button id="add-s-btn" type="button" onclick="addSField()" class="bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium px-4 py-2 rounded">
+            + Add S Parameter
+          </button>
+        </div>
+
+        <div class="flex justify-end gap-4 pt-4 border-t mt-6">
+          <button type="button" onclick="closeForm()" class="bg-gray-600 text-white px-5 py-2 rounded hover:bg-gray-700">Cancel</button>
+          <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<script>
+  const API_URL = "http://127.0.0.1:1880/modelMasterData";
+  const tbody = document.getElementById("table-body");
+  const modal = document.getElementById("form-modal");
+  const form = document.getElementById("data-form");
+  const formTitle = document.getElementById("form-title");
+  const sDataContainer = document.getElementById("s-data");
+  const addSBtn = document.getElementById("add-s-btn");
+  let isEdit = false, editId = null;
+
+  const fetchData = async () => {
+    const res = await fetch(API_URL);
+    const data = await res.json();
+    tbody.innerHTML = data.map(d => `
+      <tr class="border-t">
+        <td class="px-3 py-2">${d.id}</td>
+        <td class="px-3 py-2">${d.code}</td>
+        <td class="px-3 py-2">${d.brandname}</td>
+        <td class="px-3 py-2">${d.model_name}</td>
+        <td class="px-3 py-2">${d.motor_name}</td>
+        <td class="px-3 py-2">${d.motor_rating}</td>
+        <td class="px-3 py-2">${d.lvsLimit}</td>
+        <td class="px-3 py-2 space-x-2">
+          <button onclick='editData(${JSON.stringify(d)})' class="text-blue-600 hover:underline">Edit</button>
+          <button onclick="deleteData(${d.id})" class="text-red-600 hover:underline">Delete</button>
+        </td>
+      </tr>`).join("");
+  };
+
+  const openForm = () => {
+    isEdit = false;
+    editId = null;
+    form.reset();
+    formTitle.innerText = "Add Model";
+    sDataContainer.innerHTML = "";
+    addSField();
+    modal.classList.remove("hidden");
+    setTimeout(() => form.elements["code"].focus(), 300);
+  };
+
+  const closeForm = () => {
+    modal.classList.add("hidden");
+  };
+
+  const addSField = () => {
+    const index = sDataContainer.children.length + 1;
+    if (index > 9) {
+      alert("Maximum 9 S parameters allowed");
+      addSBtn.disabled = true;
+      return;
+    }
+    addSBtn.disabled = false;
+
+    const label = `S${index}`;
+    const block = document.createElement("div");
+    block.className = "border rounded bg-gray-50";
+
+    block.innerHTML = `
+      <div class="collapse-header flex justify-between items-center p-3 cursor-pointer bg-blue-50 hover:bg-blue-100 rounded-t">
+        <span class="font-medium">${label} Parameters</span>
+        <div>
+          <button type="button" class="text-red-600 hover:text-red-800 font-semibold text-lg mr-4" onclick="confirmRemove(this)">×</button>
+          <button type="button" class="text-blue-600 hover:text-blue-800 font-semibold text-lg" onclick="toggleCollapse(this)">▼</button>
+        </div>
+      </div>
+      <div class="collapse-content p-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <input name="s${index}_current_ll" placeholder="${label} Current LL" class="border rounded px-4 py-2 w-full text-sm" />
+        <input name="s${index}_current_ul" placeholder="${label} Current UL" class="border rounded px-4 py-2 w-full text-sm" />
+        <input name="s${index}_power_ll" placeholder="${label} Power LL" class="border rounded px-4 py-2 w-full text-sm" />
+        <input name="s${index}_power_ul" placeholder="${label} Power UL" class="border rounded px-4 py-2 w-full text-sm" />
+      </div>
+    `;
+    sDataContainer.appendChild(block);
+    updateSIndices();
+    openCollapse(block.querySelector(".collapse-content"));
+  };
+
+  const confirmRemove = (btn) => {
+    if (confirm("Are you sure you want to remove this S parameter?")) {
+      btn.closest("div.border").remove();
+      updateSIndices();
+      addSBtn.disabled = sDataContainer.children.length >= 9;
+    }
+  };
+
+  const toggleCollapse = (btn) => {
+    const content = btn.closest("div.border").querySelector(".collapse-content");
+    if (content.classList.contains("open")) {
+      closeCollapse(content);
+      btn.innerText = "▼";
+    } else {
+      openCollapse(content);
+      btn.innerText = "▲";
+    }
+  };
+  const openCollapse = (el) => el.classList.add("open");
+  const closeCollapse = (el) => el.classList.remove("open");
+
+  const updateSIndices = () => {
+    const blocks = sDataContainer.children;
+    [...blocks].forEach((block, idx) => {
+      const i = idx + 1;
+      block.querySelector(".collapse-header span").innerText = `S${i} Parameters`;
+      block.querySelectorAll("input")[0].name = `s${i}_current_ll`;
+      block.querySelectorAll("input")[0].placeholder = `S${i} Current LL`;
+      block.querySelectorAll("input")[1].name = `s${i}_current_ul`;
+      block.querySelectorAll("input")[1].placeholder = `S${i} Current UL`;
+      block.querySelectorAll("input")[2].name = `s${i}_power_ll`;
+      block.querySelectorAll("input")[2].placeholder = `S${i} Power LL`;
+      block.querySelectorAll("input")[3].name = `s${i}_power_ul`;
+      block.querySelectorAll("input")[3].placeholder = `S${i} Power UL`;
+    });
+  };
+
+  const editData = (data) => {
+    isEdit = true;
+    editId = data.id;
+    formTitle.innerText = "Edit Model";
+    form.reset();
+    modal.classList.remove("hidden");
+
+    for (let key in data) {
+      const field = form.elements.namedItem(key);
+      if (field) field.value = data[key];
+    }
+
+    sDataContainer.innerHTML = "";
+    for (let i = 1; i <= 9; i++) {
+      if (data[`s${i}_current_ll`] !== undefined) {
+        addSField();
+        form.elements[`s${i}_current_ll`].value = data[`s${i}_current_ll`] || "";
+        form.elements[`s${i}_current_ul`].value = data[`s${i}_current_ul`] || "";
+        form.elements[`s${i}_power_ll`].value = data[`s${i}_power_ll`] || "";
+        form.elements[`s${i}_power_ul`].value = data[`s${i}_power_ul`] || "";
+      }
+    }
+  };
+
+  const deleteData = async (id) => {
+    if (confirm("Delete this entry?")) {
+      await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+      fetchData();
+    }
+  };
+
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const saveBtn = form.querySelector("button[type='submit']");
+    const originalText = saveBtn.innerText;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = `${originalText} <span class="spinner"></span>`;
+
+    const formData = new FormData(form);
+    const json = Object.fromEntries(formData.entries());
+    const method = isEdit ? "PUT" : "POST";
+    const url = isEdit ? `${API_URL}/${editId}` : API_URL;
+
+    try {
+      await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(json)
+      });
+      closeForm();
+      fetchData();
+    } catch (err) {
+      alert("Failed to save data.");
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.innerText = originalText;
+    }
+  });
+
+  window.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !modal.classList.contains("hidden")) {
+      closeForm();
+    }
+  });
+
+  fetchData();
+</script>
+</body>
+</html>

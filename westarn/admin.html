@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Super Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+
+  <header class="bg-indigo-600 text-white p-4">
+    <h1 class="text-2xl font-bold">Super Admin Dashboard</h1>
+  </header>
+
+  <main class="flex-grow container mx-auto p-4 max-w-7xl">
+
+    <!-- LOGIN -->
+    <section id="login-section" class="max-w-md mx-auto mt-16 bg-white p-6 rounded shadow">
+      <h2 class="text-xl font-semibold mb-4">Login</h2>
+      <form id="login-form" class="space-y-4">
+        <input
+          type="text"
+          id="username"
+          name="username"
+          placeholder="Username"
+          required
+          class="w-full border border-gray-300 p-2 rounded"
+        />
+        <input
+          type="password"
+          id="password"
+          name="password"
+          placeholder="Password"
+          required
+          class="w-full border border-gray-300 p-2 rounded"
+        />
+        <button
+          type="submit"
+          class="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition"
+        >Login</button>
+      </form>
+      <p id="login-error" class="text-red-600 mt-2 hidden"></p>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section id="dashboard-section" class="hidden">
+
+      <nav class="flex space-x-4 border-b border-gray-300 mb-4">
+        <button data-tab="roles" class="tab-btn px-4 py-2 font-semibold border-b-2 border-indigo-600">Roles</button>
+        <button data-tab="pages" class="tab-btn px-4 py-2 font-semibold border-b-2 border-transparent hover:border-indigo-400">Pages</button>
+        <button data-tab="users" class="tab-btn px-4 py-2 font-semibold border-b-2 border-transparent hover:border-indigo-400">Users</button>
+        <button id="logout-btn" class="ml-auto px-4 py-2 font-semibold text-red-600 hover:underline">Logout</button>
+      </nav>
+
+      <!-- Roles Tab -->
+      <div id="roles" class="tab-content">
+        <h2 class="text-xl font-semibold mb-4">Manage Roles</h2>
+
+        <form id="add-role-form" class="flex mb-4 space-x-2">
+          <input type="text" id="role-name" placeholder="New Role Name" required class="flex-grow border p-2 rounded" />
+          <button type="submit" class="bg-indigo-600 text-white px-4 rounded hover:bg-indigo-700 transition">Add</button>
+        </form>
+
+        <table class="w-full border border-gray-300 rounded">
+          <thead class="bg-indigo-50">
+            <tr>
+              <th class="border px-3 py-2">ID</th>
+              <th class="border px-3 py-2">Role Name</th>
+              <th class="border px-3 py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="roles-table-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Pages Tab -->
+      <div id="pages" class="tab-content hidden">
+        <h2 class="text-xl font-semibold mb-4">Manage Pages</h2>
+
+        <form id="add-page-form" class="flex mb-4 space-x-2">
+          <input type="text" id="page-name" placeholder="Page Name" required class="flex-grow border p-2 rounded" />
+          <input type="text" id="page-url" placeholder="Page URL" required class="flex-grow border p-2 rounded" />
+          <button type="submit" class="bg-indigo-600 text-white px-4 rounded hover:bg-indigo-700 transition">Add</button>
+        </form>
+
+        <table class="w-full border border-gray-300 rounded">
+          <thead class="bg-indigo-50">
+            <tr>
+              <th class="border px-3 py-2">ID</th>
+              <th class="border px-3 py-2">Page Name</th>
+              <th class="border px-3 py-2">URL</th>
+              <th class="border px-3 py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="pages-table-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Users Tab -->
+      <div id="users" class="tab-content hidden">
+        <h2 class="text-xl font-semibold mb-4">Manage Users</h2>
+
+        <form id="add-user-form" class="flex mb-4 space-x-2 flex-wrap">
+          <input type="text" id="user-username" placeholder="Username" required class="flex-grow border p-2 rounded min-w-[150px]" />
+          <input type="password" id="user-password" placeholder="Password" required class="flex-grow border p-2 rounded min-w-[150px]" />
+          <select id="user-role" required class="border p-2 rounded min-w-[150px]"></select>
+          <button type="submit" class="bg-indigo-600 text-white px-4 rounded hover:bg-indigo-700 transition">Add</button>
+        </form>
+
+        <table class="w-full border border-gray-300 rounded">
+          <thead class="bg-indigo-50">
+            <tr>
+              <th class="border px-3 py-2">ID</th>
+              <th class="border px-3 py-2">Username</th>
+              <th class="border px-3 py-2">Role</th>
+              <th class="border px-3 py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="users-table-body"></tbody>
+        </table>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script>
+    // API base URL (adjust if needed)
+    const API_BASE = 'http://127.0.0.1:1880/api';
+
+    // Elements
+    const loginSection = document.getElementById('login-section');
+    const dashboardSection = document.getElementById('dashboard-section');
+    const loginForm = document.getElementById('login-form');
+    const loginError = document.getElementById('login-error');
+
+    const tabs = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    // Role Tab
+    const rolesTableBody = document.getElementById('roles-table-body');
+    const addRoleForm = document.getElementById('add-role-form');
+    const roleNameInput = document.getElementById('role-name');
+
+    // Pages Tab
+    const pagesTableBody = document.getElementById('pages-table-body');
+    const addPageForm = document.getElementById('add-page-form');
+    const pageNameInput = document.getElementById('page-name');
+    const pageUrlInput = document.getElementById('page-url');
+
+    // Users Tab
+    const usersTableBody = document.getElementById('users-table-body');
+    const addUserForm = document.getElementById('add-user-form');
+    const userUsernameInput = document.getElementById('user-username');
+    const userPasswordInput = document.getElementById('user-password');
+    const userRoleSelect = document.getElementById('user-role');
+
+    const logoutBtn = document.getElementById('logout-btn');
+
+    let currentUser = null;
+    let rolesCache = [];
+
+    // Show error helper
+    function showError(element, msg) {
+      element.textContent = msg;
+      element.classList.remove('hidden');
+      setTimeout(() => element.classList.add('hidden'), 4000);
+    }
+
+    // Login handler
+    loginForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const username = loginForm.username.value.trim();
+      const password = loginForm.password.value;
+
+      if (!username || !password) {
+        showError(loginError, 'Please enter username and password');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          showError(loginError, data.message || 'Login failed');
+          return;
+        }
+
+        currentUser = data.user;
+
+        // Show dashboard & hide login
+        loginSection.classList.add('hidden');
+        dashboardSection.classList.remove('hidden');
+
+        // Load initial data
+        loadRoles();
+        loadPages();
+        loadUsers();
+
+        // Populate user role dropdown
+        populateUserRoleDropdown();
+
+        // Show default tab (Roles)
+        switchTab('roles');
+      } catch (err) {
+        showError(loginError, 'Error connecting to server');
+      }
+    });
+
+    // Logout
+    logoutBtn.addEventListener('click', () => {
+      currentUser = null;
+      loginForm.reset();
+      loginSection.classList.remove('hidden');
+      dashboardSection.classList.add('hidden');
+    });
+
+    // Tab switcher
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+    });
+
+    function switchTab(tabName) {
+      tabs.forEach(t => {
+        t.classList.toggle('border-indigo-600', t.dataset.tab === tabName);
+        t.classList.toggle('border-transparent', t.dataset.tab !== tabName);
+      });
+      tabContents.forEach(tc => {
+        tc.classList.toggle('hidden', tc.id !== tabName);
+      });
+    }
+
+    // --- Roles ---
+    async function loadRoles() {
+      try {
+        const res = await fetch(`${API_BASE}/roles`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to load roles');
+
+        rolesCache = data;
+
+        rolesTableBody.innerHTML = data
+          .map(
+            r =>
+              `<tr>
+                <td class="border px-3 py-1">${r.id}</td>
+                <td class="border px-3 py-1" data-id="${r.id}" contenteditable="true" class="editable">${r.name}</td>
+                <td class="border px-3 py-1">
+                  <button class="text-red-600 hover:underline" onclick="deleteRole(${r.id})">Delete</button>
+                </td>
+              </tr>`
+          )
+          .join('');
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    addRoleForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const name = roleNameInput.value.trim();
+      if (!name) return alert('Role name is required');
+      try {
+        const res = await fetch(`${API_BASE}/roles`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to add role');
+        roleNameInput.value = '';
+        loadRoles();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+
+    window.deleteRole = async function (id) {
+      if (!confirm('Delete this role?')) return;
+      try {
+        const res = await fetch(`${API_BASE}/roles/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete role');
+        loadRoles();
+      } catch (err) {
+        alert(err.message);
+      }
+    };
+
+    // --- Pages ---
+    async function loadPages() {
+      try {
+        const res = await fetch(`${API_BASE}/pages`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to load pages');
+
+        pagesTableBody.innerHTML = data
+          .map(
+            p =>
+              `<tr>
+                <td class="border px-3 py-1">${p.id}</td>
+                <td class="border px-3 py-1" contenteditable="true" data-id="${p.id}" data-field="name">${p.name}</td>
+                <td class="border px-3 py-1" contenteditable="true" data-id="${p.id}" data-field="url">${p.url}</td>
+                <td class="border px-3 py-1">
+                  <button class="text-red-600 hover:underline" onclick="deletePage(${p.id})">Delete</button>
+                </td>
+              </tr>`
+          )
+          .join('');
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    addPageForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const name = pageNameInput.value.trim();
+      const url = pageUrlInput.value.trim();
+      if (!name || !url) return alert('Page name and URL required');
+      try {
+        const res = await fetch(`${API_BASE}/pages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, url }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to add page');
+        pageNameInput.value = '';
+        pageUrlInput.value = '';
+        loadPages();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+
+    window.deletePage = async function (id) {
+      if (!confirm('Delete this page?')) return;
+      try {
+        const res = await fetch(`${API_BASE}/pages/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete page');
+        loadPages();
+      } catch (err) {
+        alert(err.message);
+      }
+    };
+
+    // --- Users ---
+    async function loadUsers() {
+      try {
+        const res = await fetch(`${API_BASE}/users`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to load users');
+
+        usersTableBody.innerHTML = data
+          .map(
+            u =>
+              `<tr>
+                <td class="border px-3 py-1">${u.id}</td>
+                <td class="border px-3 py-1">${u.username}</td>
+                <td class="border px-3 py-1">${u.role}</td>
+                <td class="border px-3 py-1">
+                  <button class="text-red-600 hover:underline" onclick="deleteUser(${u.id})">Delete</button>
+                </td>
+              </tr>`
+          )
+          .join('');
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function populateUserRoleDropdown() {
+      try {
+        const res = await fetch(`${API_BASE}/roles`);
+        const roles = await res.json();
+        if (!res.ok) throw new Error('Failed to fetch roles');
+        userRoleSelect.innerHTML = roles
+          .map(r => `<option value="${r.id}">${r.name}</option>`)
+          .join('');
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    addUserForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const username = userUsernameInput.value.trim();
+      const password = userPasswordInput.value;
+      const role_id = userRoleSelect.value;
+      if (!username || !password || !role_id) return alert('All fields are required');
+      try {
+        const res = await fetch(`${API_BASE}/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, role_id: Number(role_id) }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to add user');
+        userUsernameInput.value = '';
+        userPasswordInput.value = '';
+        loadUsers();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+
+    window.deleteUser = async function (id) {
+      if (!confirm('Delete this user?')) return;
+      try {
+        const res = await fetch(`${API_BASE}/users/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete user');
+        loadUsers();
+      } catch (err) {
+        alert(err.message);
+      }
+    };
+
+    // Init focus on username input
+    loginForm.username.focus();
+  </script>
+
+</body>
+</html>

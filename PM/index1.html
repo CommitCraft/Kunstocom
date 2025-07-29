@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PM Entry Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-white text-gray-900 p-4">
+  <h1 class="text-2xl font-bold text-center mb-4">Preventive Maintenance Entry Dashboard</h1>
+
+  <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+  <!-- Left: Search Bar -->
+  <div>
+    <input type="text" id="searchInput" placeholder="Search..." class="p-2 rounded border border-gray-400" />
+  </div>
+
+  <!-- Right: Buttons -->
+  <div class="flex gap-2">
+    <button onclick="openCreateModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Create New PM</button>
+    <button onclick="exportToCSV()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">Export to Excel</button>
+  </div>
+</div>
+
+
+  <!-- Table -->
+  <div class="overflow-x-auto">
+    <table class="min-w-full border border-gray-400 rounded-lg overflow-hidden text-sm">
+      <thead class="bg-gray-200 text-gray-800">
+       
+  <tr class="bg-gray-200 text-gray-700">
+    <th class="border p-2">#</th>
+    <th class="border">Frequency</th>
+    <th class="border">Machine</th>
+    <th class="border">PM Date</th>
+    <th class="border">Status</th>
+    <th class="border">Reason</th>
+    <th class="border">Alert Date</th>
+    <th class="border">Actions</th>
+  </tr>
+
+
+      </thead>
+      <tbody id="tableBody" class="text-center"></tbody>
+    </table>
+  </div>
+
+  <!-- Create PM Modal -->
+  <div id="createModal" class="fixed inset-0 hidden bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white text-black p-6 rounded-lg w-full max-w-lg shadow-lg space-y-4">
+      <h2 class="text-xl font-bold text-center">Create New PM Entry</h2>
+      <form id="pmForm" class="space-y-3">
+        <select id="frequency" required class="p-2 w-full border rounded">
+          <option value="">Select Frequency</option>
+          <option>WEEKLY</option><option>MONTHLY</option><option>QUARTERLY</option><option>YEARLY</option>
+        </select>
+        <select id="machine" required class="p-2 w-full border rounded">
+          <option value="">Loading machines...</option>
+        </select>
+        <input type="date" id="date" required class="p-2 w-full border rounded" />
+        <input type="text" id="reason" placeholder="Reason (optional)" class="p-2 w-full border rounded" />
+        <input type="number" id="alert_days" placeholder="Alert Days Before" class="p-2 w-full border rounded" />
+        <div class="flex justify-between">
+          <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Submit</button>
+          <button type="button" onclick="closeCreateModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="editModal" class="fixed inset-0 hidden bg-black bg-opacity-40 flex justify-center items-center z-50">
+    <div class="bg-white text-black p-6 rounded-lg w-full max-w-md space-y-4 shadow-lg">
+      <h2 class="text-xl font-bold text-center">Edit Entry</h2>
+      <input type="hidden" id="edit_id" />
+      <select id="edit_frequency" class="p-2 w-full border rounded">
+        <option>WEEKLY</option><option>MONTHLY</option><option>QUARTERLY</option><option>YEARLY</option>
+      </select>
+      <select id="edit_machine" class="p-2 w-full border rounded">
+        <option>Loading machines...</option>
+      </select>
+      <input type="date" id="edit_date" class="p-2 w-full border rounded" />
+      <select id="edit_status" class="p-2 w-full border rounded">
+        <option>Done</option><option>Pending</option>
+      </select>
+      <input type="text" id="edit_reason" placeholder="Reason" class="p-2 w-full border rounded" />
+      <input type="number" id="edit_alert_days" placeholder="Alert Days" class="p-2 w-full border rounded" />
+      <div class="flex justify-between">
+        <button onclick="saveEdit()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">Save</button>
+        <button onclick="closeModal()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const baseURL = "http://10.0.156.2:1880";
+    let pmData = [];
+
+    function formatDate(dateStr) {
+  const d = new Date(dateStr);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
+
+    async function loadData() {
+      const res = await fetch(`${baseURL}/pmEntry`);
+      pmData = await res.json();
+      renderTable();
+    }
+
+    function renderTable() {
+  const filter = document.getElementById("searchInput").value.toLowerCase();
+  const filtered = pmData.filter(d =>
+    Object.values(d).join(" ").toLowerCase().includes(filter)
+  );
+  const tbody = document.getElementById("tableBody");
+
+  tbody.innerHTML = filtered.map((d, i) => {
+    // Format and calculate dates
+    const rawDate = d.date ? d.date.split("T")[0] : "";
+    const dueDate = new Date(rawDate);
+    const alertDays = parseInt(d.alert_days || 0, 10);
+    const alertDate = new Date(dueDate);
+    alertDate.setDate(alertDate.getDate() - alertDays);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    alertDate.setHours(0, 0, 0, 0);
+
+    const showAlert = d.status === 'Pending' && today >= alertDate;
+
+    return `<tr class="border-t border-gray-300">
+      <td class="p-2 border">${i + 1}</td>
+      <td class="border">${d.frequency || ''}</td>
+      <td class="border">${d.machine || ''}</td>
+      <td class="border">${formatDate(d.date)}</td>
+      <td class="border font-bold ${d.status === 'Done' ? 'text-green-600' : 'text-red-600'}">${d.status || ''}</td>
+      <td class="border text-left">${d.reason || ''}</td>
+      <td class="border text-center">
+        ${formatDate(alertDate.toISOString())}
+        ${showAlert ? '<div><span class="bg-red-500 text-black text-xs px-2 py-1 rounded mt-1 inline-block">Due</span></div>' : ''}
+      </td>
+      <td class="border">
+        <button onclick='editRow(${JSON.stringify(d)})' class="text-yellow-600">Edit</button> |
+        <button onclick="deleteRow(${d.id})" class="text-red-600">Delete</button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+       function openCreateModal() {
+      document.getElementById("createModal").classList.remove("hidden");
+    }
+
+    function closeCreateModal() {
+      document.getElementById("createModal").classList.add("hidden");
+      document.getElementById("pmForm").reset();
+    }
+
+    function closeModal() {
+      document.getElementById("editModal").classList.add("hidden");
+    }
+
+    document.getElementById("searchInput").addEventListener("input", renderTable);
+
+    document.getElementById("pmForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const entry = {
+        frequency: frequency.value,
+        machine: machine.value,
+        date: date.value,
+        status: 'Pending',
+        reason: reason.value,
+        alert_days: +alert_days.value || 0
+      };
+      await fetch(`${baseURL}/pmEntry`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry)
+      });
+      closeCreateModal();
+      loadData();
+    });
+
+    function editRow(data) {
+      edit_id.value = data.id;
+      edit_frequency.value = data.frequency;
+      edit_machine.value = data.machine;
+      edit_date.value = data.date;
+      edit_status.value = data.status;
+      edit_reason.value = data.reason;
+      edit_alert_days.value = data.alert_days;
+      document.getElementById("editModal").classList.remove("hidden");
+    }
+
+    async function saveEdit() {
+      const id = edit_id.value;
+      const updated = {
+        frequency: edit_frequency.value,
+        machine: edit_machine.value,
+        date: edit_date.value,
+        status: edit_status.value,
+        reason: edit_reason.value,
+        alert_days: +edit_alert_days.value || 0
+      };
+      await fetch(`${baseURL}/pmEntry/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updated)
+      });
+      closeModal();
+      loadData();
+    }
+
+    async function deleteRow(id) {
+      if (confirm("Delete this entry?")) {
+        await fetch(`${baseURL}/pmEntry/${id}`, { method: "DELETE" });
+        loadData();
+      }
+    }
+
+    async function loadMachineOptions() {
+      try {
+        const res = await fetch(`${baseURL}/ppMachinesList`);
+        const machines = await res.json();
+
+        const machineSelects = [document.getElementById("machine"), document.getElementById("edit_machine")];
+        machineSelects.forEach(select => {
+          select.innerHTML = `<option value="">Select Machine</option>`;
+          machines.forEach(machine => {
+            select.innerHTML += `<option value="${machine}">${machine}</option>`;
+          });
+        });
+      } catch (error) {
+        console.error("Failed to load machine list", error);
+      }
+    }
+
+    function exportToCSV() {
+      let rows = [["ID", "Frequency", "Machine", "Date", "Status", "Reason", "Alert Days"]];
+      pmData.forEach(d => {
+        rows.push([d.id, d.frequency, d.machine, formatDate(d.date), d.status, d.reason || "", d.alert_days]);
+      });
+      const csv = rows.map(r => r.join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "pm_entries.csv";
+      link.click();
+    }
+
+    // Initial load
+    loadMachineOptions();
+    loadData();
+  </script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <title>Super Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#10b981',
+            sidebar: '#1f2937',
+            sidebarHover: '#374151'
+          }
+        }
+      }
+    };
+  </script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-100 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-primary text-white p-4 shadow">
+    <h1 class="text-2xl font-bold">Super Admin Dashboard</h1>
+  </header>
+
+  <!-- Layout -->
+  <div class="flex h-[calc(100vh-64px)]">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-sidebar text-white p-4 space-y-4 flex flex-col justify-between">
+      <nav class="space-y-2">
+        <button onclick="setActive(this); loadModule('roles')" class="nav-link flex items-center w-full px-3 py-2 rounded hover:bg-sidebarHover transition">
+          <i data-lucide="shield" class="w-5 h-5 mr-2"></i><span>Manage Roles</span>
+        </button>
+        <button onclick="setActive(this); loadModule('pages')" class="nav-link flex items-center w-full px-3 py-2 rounded hover:bg-sidebarHover transition">
+          <i data-lucide="file-text" class="w-5 h-5 mr-2"></i><span>Manage Pages</span>
+        </button>
+        <button onclick="setActive(this); loadModule('users')" class="nav-link flex items-center w-full px-3 py-2 rounded hover:bg-sidebarHover transition">
+          <i data-lucide="users" class="w-5 h-5 mr-2"></i><span>Manage Users</span>
+        </button>
+      </nav>
+      <button onclick="logout()" class="flex items-center px-3 py-2 rounded bg-red-600 hover:bg-red-700 transition">
+        <i data-lucide="log-out" class="w-5 h-5 mr-2"></i><span>Logout</span>
+      </button>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 bg-gray-50 dark:bg-gray-800 p-4">
+      <iframe id="moduleFrame" src="manage-roles.html" class="w-full h-full rounded border dark:border-gray-700 shadow-inner"></iframe>
+    </main>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    if (localStorage.getItem("isLoggedIn") !== "true") {
+      window.location.href = "index.html";
+    }
+
+    function loadModule(module) {
+      const src = {
+        roles: 'manage-roles.html',
+        pages: 'manage-pages.html',
+        users: 'manage-users.html'
+      }[module] || 'manage-roles.html';
+      document.getElementById('moduleFrame').src = src;
+    }
+
+    function setActive(el) {
+      document.querySelectorAll(".nav-link").forEach(btn => btn.classList.remove("bg-sidebarHover"));
+      el.classList.add("bg-sidebarHover");
+    }
+
+    function logout() {
+      localStorage.removeItem("isLoggedIn");
+      window.location.href = "index.html";
+    }
+  </script>
+</body>
+</html>

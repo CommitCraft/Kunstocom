@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Model Master Data</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      background-color: #f9fafb;
+      padding: 24px;
+      font-family: sans-serif;
+      color: #1f2937;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: auto;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .title {
+      font-size: 30px;
+      font-weight: 600;
+      color: #1e3a8a;
+    }
+
+    .btn {
+      background-color: #2563eb;
+      color: white;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      cursor: pointer;
+    }
+
+    .table {
+      width: 100%;
+      font-size: 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      overflow-x: auto;
+      background-color: white;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .table thead {
+      background-color: #dbeafe;
+      color: #1e40af;
+      font-weight: 600;
+    }
+
+    .table th,
+    .table td {
+      padding: 8px 12px;
+      border-top: 1px solid #d1d5db;
+    }
+
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .modal-box {
+      background-color: white;
+      padding: 24px;
+      border-radius: 16px;
+      max-width: 768px;
+      width: 95%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal-title {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 16px;
+      color: #1e3a8a;
+      border-bottom: 1px solid #d1d5db;
+      padding-bottom: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      padding-top: 16px;
+      border-top: 1px solid #d1d5db;
+      margin-top: 24px;
+    }
+
+    .btn-cancel {
+      background-color: #4b5563;
+      color: white;
+      padding: 8px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-save {
+      background-color: #2563eb;
+      color: white;
+      padding: 8px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .collapse-header {
+      cursor: pointer;
+    }
+
+    .collapse-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .collapse-content.open {
+      max-height: 500px;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #3b82f6;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 8px;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 class="title">Model Master Data</h1>
+      <button onclick="openForm()" class="btn">Add Model</button>
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Brand Name</th>
+          <th>Model Name</th>
+          <th>Product Code</th>
+          <th>Rating</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+
+<!-- Modal -->
+<div id="form-modal" style="position: fixed; inset: 0; display: none; background-color: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 50;">
+  <div style="background-color: white; padding: 24px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); width: 95%; max-width: 768px; max-height: 90vh; overflow-y: auto;">
+    <h2 id="form-title" style="font-size: 24px; font-weight: bold; margin-bottom: 24px; color: #1e3a8a; border-bottom: 1px solid #ccc; padding-bottom: 8px;">
+      Add Model
+    </h2>
+    <form id="data-form" style="display: flex; flex-direction: column; gap: 24px;">
+      
+      <!-- Form Fields: Single Column -->
+      <div style="display: grid; grid-template-columns: 1fr; gap: 16px;">
+        <div>
+          <label for="code" style="display: block; font-size: 14px; font-weight: 500; color: #374151;">Code</label>
+          <input id="code" name="code" required placeholder="Code"
+            style="border: 1px solid #ccc; border-radius: 4px; padding: 8px 16px; width: 100%; font-size: 14px;" />
+          <div id="code-display" style="display: none; padding: 8px 16px; font-size: 14px; color: #1f2937; background-color: #f3f4f6; border-radius: 4px;"></div>
+        </div>
+
+        <div>
+          <label for="brandname" style="display: block; font-size: 14px; font-weight: 500; color: #374151;">Brand Name</label>
+          <input id="brandname" name="brandname" required placeholder="Brand Name"
+            style="border: 1px solid #ccc; border-radius: 4px; padding: 8px 16px; width: 100%; font-size: 14px;" />
+        </div>
+
+        <div>
+          <label for="model_name" style="display: block; font-size: 14px; font-weight: 500; color: #374151;">Model Name</label>
+          <input id="model_name" name="model_name" required placeholder="Model Name"
+            style="border: 1px solid #ccc; border-radius: 4px; padding: 8px 16px; width: 100%; font-size: 14px;" />
+        </div>
+
+        <div>
+          <label for="motor_name" style="display: block; font-size: 14px; font-weight: 500; color: #374151;">Product Code</label>
+          <input id="motor_name" name="motor_name" placeholder="Product Code"
+            style="border: 1px solid #ccc; border-radius: 4px; padding: 8px 16px; width: 100%; font-size: 14px;" />
+        </div>
+
+        <div>
+          <label for="motor_rating" style="display: block; font-size: 14px; font-weight: 500; color: #374151;">Motor Rating</label>
+          <input id="motor_rating" name="motor_rating" placeholder="Motor Rating"
+            style="border: 1px solid #ccc; border-radius: 4px; padding: 8px 16px; width: 100%; font-size: 14px;" />
+        </div>
+      </div>
+
+      <!-- S1–S9 Parameters Section -->
+      <div>
+        <h3 style="font-size: 18px; font-weight: 600; color: #1d4ed8; margin-bottom: 16px;">
+          S1–S9 Parameters
+        </h3>
+        <div id="s-data" style="display: flex; flex-direction: column; gap: 16px;"></div>
+        <button id="add-s-btn" type="button" onclick="addSField()"
+          style="background-color: #dbeafe; color: #1e40af; font-weight: 500; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer;">
+          + Add S Parameter
+        </button>
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display: flex; justify-content: flex-end; gap: 16px; padding-top: 16px; border-top: 1px solid #ccc; margin-top: 24px;">
+        <button type="button" onclick="closeForm()"
+          style="background-color: #4b5563; color: white; padding: 8px 20px; border-radius: 4px; border: none; cursor: pointer;">
+          Cancel
+        </button>
+        <button type="submit"
+          style="background-color: #2563eb; color: white; padding: 8px 20px; border-radius: 4px; border: none; cursor: pointer;">
+          Save
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+
+  <script>
+    const API_URL = "http://127.0.0.1:1880/modelMasterData";
+    const tbody = document.getElementById("table-body");
+    const modal = document.getElementById("form-modal");
+    const form = document.getElementById("data-form");
+    const formTitle = document.getElementById("form-title");
+    const sDataContainer = document.getElementById("s-data");
+    const addSBtn = document.getElementById("add-s-btn");
+    let isEdit = false,
+      editId = null;
+
+    const fetchData = async () => {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      tbody.innerHTML = data
+        .map(
+          (d) => `
+     <tr style="border-top: 1px solid #ccc;">
+  <td style="padding: 8px 12px;">${d.code}</td>
+  <td style="padding: 8px 12px;">${d.brandname}</td>
+  <td style="padding: 8px 12px;">${d.model_name}</td>
+  <td style="padding: 8px 12px;">${d.motor_name}</td>
+  <td style="padding: 8px 12px;">${d.motor_rating}</td>
+  <td style="padding: 8px 12px;">
+    <button 
+      onclick='editData(${JSON.stringify(d)})' 
+      style="color: #2563eb; text-decoration: underline; margin-right: 8px; background: none; border: none; cursor: pointer;">
+      Edit
+    </button>
+    <button 
+      onclick="deleteData(${d.id})" 
+      style="color: #dc2626; text-decoration: underline; background: none; border: none; cursor: pointer;">
+      Delete
+    </button>
+  </td>
+</tr>
+`
+        )
+        .join("");
+    };
+
+   const openForm = () => {
+  isEdit = false;
+  editId = null;
+  form.reset();
+  formTitle.innerText = "Add Model";
+  sDataContainer.innerHTML = "";
+  addSField();
+
+  // Show input, hide read-only text
+  document.getElementById("code").style.display = "block";
+  document.getElementById("code-display").style.display = "none";
+  form.elements["code"].disabled = false;
+
+  // Show modal
+  modal.style.display = "flex";
+
+  // Focus after slight delay
+  setTimeout(() => form.elements["code"].focus(), 300);
+};
+
+    const closeForm = () => {
+  modal.style.display = "none";
+};
+
+
+    const addSField = () => {
+      const index = sDataContainer.children.length + 1;
+if (index > 1) {
+  alert("Maximum 1 S parameters allowed");
+  addSBtn.disabled = true;
+  return;
+}
+addSBtn.disabled = false;
+
+const label = `S${index}`;
+const block = document.createElement("div");
+block.style.border = "1px solid #ccc";
+block.style.borderRadius = "8px";
+block.style.backgroundColor = "#f9fafb"; // similar to Tailwind's bg-gray-50
+block.style.marginTop = "16px";
+
+
+      block.innerHTML = `
+      <div class="collapse-header" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; cursor: pointer; background-color: #eff6ff; border-top-left-radius: 8px; border-top-right-radius: 8px;" onclick="toggleCollapse(this)">
+  <span style="font-weight: 500;">${label} Parameters</span>
+  <div>
+    <button type="button" onclick="confirmRemove(this)" 
+      style="color: #dc2626; font-weight: 600; font-size: 18px; margin-right: 16px; background: none; border: none; cursor: pointer;">
+      ×
+    </button>
+    <button type="button" onclick="toggleCollapse(this)" 
+      style="color: #2563eb; font-weight: 600; font-size: 18px; background: none; border: none; cursor: pointer;">
+      ▼
+    </button>
+  </div>
+</div>
+
+<div class="collapse-content" style="padding: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+  <div>
+    <label for="s${index}_current_ll" style="display: block; font-size: 14px; color: #374151; margin-bottom: 4px;">
+      ${label} Current LL
+    </label>
+    <input name="s${index}_current_ll" id="s${index}_current_ll" placeholder="${label} Current LL"
+      style="border: 1px solid #ccc; border-radius: 4px; padding: 8px 16px; width: 100%; font-size: 14px;" />
+  </div>
+
+  <div>
+    <label for="s${index}_current_ul" style="display: block; font-size: 14px; color: #374151; margin-bottom: 4px;">
+      ${label} Current UL
+    </label>
+    <input name="s${index}_current_ul" id="s${index}_current_ul" placeholder="${label} Current UL"
+      style="border: 1px solid #ccc; border-radius: 4px; padding: 8px 16px; width: 100%; font-size: 14px;" />
+  </div>
+
+  <div>
+    <label for="s${index}_power_ll" style="display: block; font-size: 14px; color: #374151; margin-bottom: 4px;">
+      ${label} Power LL
+    </label>
+    <input name="s${index}_power_ll" id="s${index}_power_ll" placeholder="${label} Power LL"
+      style="border: 1px solid #ccc; border-radius: 4px; padding: 8px 16px; width: 100%; font-size: 14px;" />
+  </div>
+
+  <div>
+    <label for="s${index}_power_ul" style="display: block; font-size: 14px; color: #374151; margin-bottom: 4px;">
+      ${label} Power UL
+    </label>
+    <input name="s${index}_power_ul" id="s${index}_power_ul" placeholder="${label} Power UL"
+      style="border: 1px solid #ccc; border-radius: 4px; padding: 8px 16px; width: 100%; font-size: 14px;" />
+  </div>
+</div>`;
+     sDataContainer.appendChild(block);
+updateSIndices();
+openCollapse(block.querySelector(".collapse-content"));
+};
+
+// Remove S parameter block
+const confirmRemove = (btn) => {
+  if (confirm("Are you sure you want to remove this S parameter?")) {
+    btn.closest("div").remove(); // No longer using class="border"
+    updateSIndices();
+    addSBtn.disabled = sDataContainer.children.length >= 1;
+  }
+};
+
+// Toggle collapse (expand/collapse logic)
+const toggleCollapse = (btn) => {
+  const content = btn.parentElement.parentElement.nextElementSibling; // Get the .collapse-content div
+  if (content.style.display === "none" || content.style.display === "") {
+    openCollapse(content);
+    btn.innerText = "▲";
+  } else {
+    closeCollapse(content);
+    btn.innerText = "▼";
+  }
+};
+
+// Show the collapse content
+const openCollapse = (el) => {
+  el.style.display = "grid"; // restore grid layout
+};
+
+// Hide the collapse content
+const closeCollapse = (el) => {
+  el.style.display = "none";
+};
+
+
+   const updateSIndices = () => {
+  const blocks = sDataContainer.children;
+
+  [...blocks].forEach((block, idx) => {
+    const i = idx + 1;
+
+    // Update header text (assumes first <span> inside header holds label)
+    const headerSpan = block.querySelector("div > span");
+    if (headerSpan) headerSpan.innerText = `S${i} Parameters`;
+
+    const inputs = block.querySelectorAll("input");
+    const labels = block.querySelectorAll("label");
+
+    if (inputs.length >= 4 && labels.length >= 4) {
+      inputs[0].name = `s${i}_current_ll`;
+      inputs[0].id = `s${i}_current_ll`;
+      inputs[0].placeholder = `S${i} Current LL`;
+      labels[0].htmlFor = `s${i}_current_ll`;
+      labels[0].innerText = `S${i} Current LL`;
+
+      inputs[1].name = `s${i}_current_ul`;
+      inputs[1].id = `s${i}_current_ul`;
+      inputs[1].placeholder = `S${i} Current UL`;
+      labels[1].htmlFor = `s${i}_current_ul`;
+      labels[1].innerText = `S${i} Current UL`;
+
+      inputs[2].name = `s${i}_power_ll`;
+      inputs[2].id = `s${i}_power_ll`;
+      inputs[2].placeholder = `S${i} Power LL`;
+      labels[2].htmlFor = `s${i}_power_ll`;
+      labels[2].innerText = `S${i} Power LL`;
+
+      inputs[3].name = `s${i}_power_ul`;
+      inputs[3].id = `s${i}_power_ul`;
+      inputs[3].placeholder = `S${i} Power UL`;
+      labels[3].htmlFor = `s${i}_power_ul`;
+      labels[3].innerText = `S${i} Power UL`;
+    }
+  });
+};
+   const editData = (data) => {
+  isEdit = true;
+  editId = data.id;
+  formTitle.innerText = "Edit Model";
+  form.reset();
+
+  // Show the modal
+  modal.style.display = "flex";
+
+  // Fill form fields
+  for (let key in data) {
+    const field = form.elements.namedItem(key);
+    if (field) {
+      field.value = data[key];
+    }
+  }
+
+  // Hide code input and show read-only code display
+  const codeInput = document.getElementById("code");
+  const codeDisplay = document.getElementById("code-display");
+
+  codeInput.style.display = "none";
+  codeDisplay.style.display = "block";
+  codeDisplay.textContent = data.code;
+
+  // Remove existing S parameter blocks
+  sDataContainer.innerHTML = "";
+
+  // Add S parameter blocks if they exist in data
+  for (let i = 1; i <= 9; i++) {
+    if (data[`s${i}_current_ll`] !== undefined) {
+      addSField();
+
+      const currentLL = form.elements[`s${i}_current_ll`];
+      const currentUL = form.elements[`s${i}_current_ul`];
+      const powerLL = form.elements[`s${i}_power_ll`];
+      const powerUL = form.elements[`s${i}_power_ul`];
+
+      if (currentLL) currentLL.value = data[`s${i}_current_ll`] || "";
+      if (currentUL) currentUL.value = data[`s${i}_current_ul`] || "";
+      if (powerLL) powerLL.value = data[`s${i}_power_ll`] || "";
+      if (powerUL) powerUL.value = data[`s${i}_power_ul`] || "";
+    }
+  }
+};
+
+    const deleteData = async (id) => {
+  const confirmed = confirm("Delete this entry?");
+  if (!confirmed) return;
+
+  try {
+    const response = await fetch(`${API_URL}/${id}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to delete entry.");
+    }
+
+    fetchData(); // Refresh table after deletion
+  } catch (error) {
+    alert("Error deleting entry: " + error.message);
+  }
+};
+
+
+    form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const saveBtn = form.querySelector("button[type='submit']");
+  const originalText = saveBtn.innerText;
+
+  // Disable button and show loader
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = `${originalText} <span class="spinner"></span>`;
+
+  // Prepare form data
+  const formData = new FormData(form);
+  const json = Object.fromEntries(formData.entries());
+
+  // Set method and URL based on mode
+  const method = isEdit ? "PUT" : "POST";
+  const url = isEdit ? `${API_URL}/${editId}` : API_URL;
+
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(json)
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to save data");
+    }
+
+    closeForm();     // Close modal/form
+    fetchData();     // Refresh the data table
+  } catch (err) {
+    console.error(err);
+    alert("Failed to save data. Please try again.");
+  } finally {
+    // Re-enable the button and restore original text
+    saveBtn.disabled = false;
+    saveBtn.innerText = originalText;
+  }
+});
+
+    window.addEventListener("keydown", (e) => {
+  // If ESC key is pressed and modal is visible, close it
+  if (e.key === "Escape" && !modal.classList.contains("hidden")) {
+    closeForm();
+  }
+});
+
+
+    fetchData();
+  </script>
+</body>
+
+</html>
