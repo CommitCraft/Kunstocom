@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <title>Menu Manager</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#ffffff',
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 p-6">
+  <h2 class="text-3xl font-bold mb-6 border-b border-primary pb-2">Menu Management</h2>
+
+    <!-- Add Menu Form -->
+    <form id="menu-form" class="bg-gray-800 p-4 rounded shadow mb-6">
+      <div class="grid grid-cols-3 gap-4">
+        <div>
+          <label class="block mb-1 text-sm text-gray-300">Menu Title</label>
+          <input type="text" id="menu-title" class="w-full bg-gray-700 border border-gray-600 px-2 py-1 rounded text-white" required />
+        </div>
+
+        <div>
+          <label class="block mb-1 text-sm text-gray-300">Type</label>
+          <select id="menu-type" class="w-full bg-gray-700 border border-gray-600 px-2 py-1 rounded text-white" required>
+            <option value="menu">Menu</option>
+            <option value="submenu">Sub Menu</option>
+            <option value="child">Child Menu</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block mb-1 text-sm text-gray-300">Page</label>
+          <select id="menu-page" class="w-full bg-gray-700 border border-gray-600 px-2 py-1 rounded text-white" required>
+            <option value="">Loading...</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-4 flex justify-between items-center">
+        <input type="hidden" id="edit-id">
+        <button type="submit" class="bg-white text-gray-900 px-4 py-2 rounded font-semibold hover:bg-gray-200">Save Menu</button>
+        <button type="button" onclick="resetForm()" class="text-sm text-gray-400 hover:text-white">Reset</button>
+      </div>
+    </form>
+
+    <!-- Menu Table -->
+    <div class="overflow-x-auto">
+      <table class="w-full bg-gray-800 border border-gray-700 rounded shadow text-sm">
+        <thead class="bg-gray-700 text-gray-300">
+          <tr>
+            <th class="text-left p-2 border-b border-gray-600">Title</th>
+            <th class="text-left p-2 border-b border-gray-600">Type</th>
+            <th class="text-left p-2 border-b border-gray-600">Page</th>
+            <th class="text-left p-2 border-b border-gray-600">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="menu-table" class="text-gray-100"></tbody>
+      </table>
+    </div>
+  
+
+  <script>
+    const API_BASE = "http://localhost:1880";
+
+    async function loadPages() {
+      const pageSelect = document.getElementById('menu-page');
+      try {
+        const res = await fetch(`${API_BASE}/api/pages`);
+        const pages = await res.json();
+        pageSelect.innerHTML = `<option value="">Select Page</option>`;
+        pages.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.name;
+          pageSelect.appendChild(opt);
+        });
+      } catch (err) {
+        pageSelect.innerHTML = `<option value="">Failed to load</option>`;
+        console.error(err);
+      }
+    }
+
+    async function loadMenus() {
+      try {
+        const res = await fetch(`${API_BASE}/menus`);
+        const menus = await res.json();
+        const tbody = document.getElementById('menu-table');
+        tbody.innerHTML = '';
+        menus.forEach(menu => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="p-2 border-t border-gray-700">${menu.title}</td>
+            <td class="p-2 border-t border-gray-700">${menu.type}</td>
+            <td class="p-2 border-t border-gray-700">${menu.page_name}</td>
+            <td class="p-2 border-t border-gray-700 space-x-2">
+              <button onclick="editMenu(${menu.id})" class="underline text-gray-300 hover:text-white">Edit</button>
+              <button onclick="deleteMenu(${menu.id})" class="underline text-gray-400 hover:text-white">Delete</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error("Failed to load menus", err);
+      }
+    }
+
+    async function saveMenu(e) {
+      e.preventDefault();
+      const title = document.getElementById('menu-title').value.trim();
+      const type = document.getElementById('menu-type').value;
+      const page_id = document.getElementById('menu-page').value;
+      const id = document.getElementById('edit-id').value;
+
+      if (!title || !type || !page_id) return alert("All fields are required");
+
+      const payload = { title, type, page_id };
+      const url = id ? `${API_BASE}/menus/${id}` : `${API_BASE}/menus`;
+      const method = id ? 'PUT' : 'POST';
+
+      try {
+        await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        resetForm();
+        loadMenus();
+      } catch (err) {
+        console.error("Failed to save menu", err);
+      }
+    }
+
+    function editMenu(id) {
+      fetch(`${API_BASE}/menus/${id}`)
+        .then(res => res.json())
+        .then(menu => {
+          document.getElementById('edit-id').value = menu.id;
+          document.getElementById('menu-title').value = menu.title;
+          document.getElementById('menu-type').value = menu.type;
+          document.getElementById('menu-page').value = menu.page_id;
+        });
+    }
+
+    async function deleteMenu(id) {
+      if (!confirm("Delete this menu?")) return;
+      await fetch(`${API_BASE}/menus/${id}`, { method: 'DELETE' });
+      loadMenus();
+    }
+
+    function resetForm() {
+      document.getElementById('menu-form').reset();
+      document.getElementById('edit-id').value = '';
+    }
+
+    document.getElementById('menu-form').addEventListener('submit', saveMenu);
+    loadPages();
+    loadMenus();
+  </script>
+</body>
+</html>

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <title>Super Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            sidebar: '#1f2937',
+            sidebarHover: '#374151',
+          }
+        }
+      }
+    };
+  </script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="bg-black text-white min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-gray-800 text-white p-4 shadow">
+    <h1 class="text-2xl font-bold text-green-600">Saral Technologies Dashboard</h1>
+  </header>
+
+  <!-- Layout -->
+  <div class="flex h-[calc(100vh-64px)]">
+    
+    <!-- Sidebar -->
+    <aside id="sidebar" class="w-64 transition-all duration-300 bg-sidebar p-4 space-y-4 flex flex-col justify-between">
+
+      <div>
+        <!-- User Info displayed here -->
+        <div id="userInfo" class="mb-4 px-3 py-2 bg-gray-700 rounded text-sm font-medium select-none">
+          <!-- Username will be inserted here by JS -->
+        </div>
+
+        <!-- Menu Label and Toggle -->
+        <div class="flex justify-between items-center mb-4">
+          <span class="font-semibold text-lg label">Menu</span>
+          <button onclick="toggleSidebar()" class="p-1 rounded hover:bg-gray-700 transition">
+            <svg id="toggleIcon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Dynamic Navigation Buttons -->
+        <nav id="sidebarNav" class="space-y-2">
+          <!-- JS will dynamically inject menu buttons here based on role/pages -->
+        </nav>
+      </div>
+
+      <!-- Sidebar Bottom: Logout -->
+      <button onclick="logout()" class="flex items-center px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 transition">
+        <svg data-lucide="log-out" class="icon w-5 h-5 mr-2"></svg><span class="label">Logout</span>
+      </button>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 bg-gray-900 p-4 relative">
+      <iframe id="moduleFrame" src="" class="w-full h-full rounded border border-gray-700 shadow-inner"></iframe>
+
+      <!-- Toast -->
+      <div id="toast" class="hidden absolute bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded shadow-lg border border-gray-600">
+        Logged out successfully!
+      </div>
+    </main>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    // Check login status
+    if (localStorage.getItem("isLoggedIn") !== "true") {
+      window.location.href = "index.html";
+    } else {
+      // Show username in sidebar
+      const userDataStr = localStorage.getItem("user");
+      if (userDataStr) {
+        const user = JSON.parse(userDataStr);
+        const userInfoDiv = document.getElementById("userInfo");
+        if (userInfoDiv) {
+          userInfoDiv.textContent = `Welcome, ${user.username}`;
+        }
+      }
+      
+      // Render sidebar menus based on role permission pages
+      renderSidebarMenus();
+    }
+
+    // Given a page, create button element with icon and label
+    function createMenuItem(page) {
+      const btn = document.createElement('button');
+      btn.className = "nav-link flex items-center w-full px-3 py-2 rounded hover:bg-sidebarHover transition";
+
+      // Map page names to lucide icons (customize as needed)
+      const iconNameMap = {
+        "Dashboard": "shield",
+        "Users": "users",
+        "Roles": "shield",
+        "Menu": "layout-grid",
+        "Pages": "file-text",
+        "Home": "home"
+      };
+      const iconName = iconNameMap[page.name] || "file-text";
+
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("data-lucide", iconName);
+      svg.classList.add("icon", "w-5", "h-5", "mr-2");
+      btn.appendChild(svg);
+
+      const span = document.createElement('span');
+      span.className = "label";
+      span.textContent = `Manage ${page.name}`;
+      btn.appendChild(span);
+
+      btn.onclick = function() {
+        setActive(btn);
+        document.getElementById('moduleFrame').src = page.url;
+      };
+
+      return btn;
+    }
+
+    // Render sidebar menus dynamically from stored pages array
+    function renderSidebarMenus() {
+      const pagesStr = localStorage.getItem("pages");
+      const sidebarNav = document.getElementById("sidebarNav");
+      if (!sidebarNav) return;
+
+      sidebarNav.innerHTML = ''; // Clear current menus
+
+      if (!pagesStr) {
+        sidebarNav.textContent = "No menu available";
+        return;
+      }
+
+      const pages = JSON.parse(pagesStr);
+
+      pages.forEach(page => {
+        const menuBtn = createMenuItem(page);
+        sidebarNav.appendChild(menuBtn);
+      });
+
+      // Set first menu as active and load its page by default
+      if (pages.length > 0) {
+        sidebarNav.children[0].classList.add("bg-sidebarHover");
+        document.getElementById('moduleFrame').src = pages[0].url;
+      }
+      lucide.createIcons(); // Refresh icons after dynamic insertion
+    }
+
+    function setActive(el) {
+      document.querySelectorAll("#sidebarNav .nav-link").forEach(btn => btn.classList.remove("bg-sidebarHover"));
+      el.classList.add("bg-sidebarHover");
+    }
+
+    function logout() {
+      localStorage.removeItem("isLoggedIn");
+      localStorage.removeItem("user");
+      localStorage.removeItem("pages");
+      showToast();
+      setTimeout(() => {
+        window.location.href = "index.html";
+      }, 1200);
+    }
+
+    function showToast() {
+      const toast = document.getElementById('toast');
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 1000);
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const isCollapsed = sidebar.classList.contains('w-16');
+
+      sidebar.classList.toggle('w-64');
+      sidebar.classList.toggle('w-16');
+
+      // Toggle label visibility
+      document.querySelectorAll('.label').forEach(label => label.classList.toggle('hidden'));
+
+      // Fix icon alignment
+      document.querySelectorAll('.icon').forEach(icon => {
+        icon.classList.toggle('mr-2', !isCollapsed);
+        icon.classList.toggle('mx-auto', isCollapsed);
+      });
+
+      // Flip toggle arrow
+      const toggleIcon = document.getElementById("toggleIcon");
+      toggleIcon.innerHTML = isCollapsed ?
+        `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />` :
+        `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />`;
+    }
+  </script>
+</body>
+</html>

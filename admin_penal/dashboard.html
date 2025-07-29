@@ -11,9 +11,8 @@
       theme: {
         extend: {
           colors: {
-            primary: '#10b981',
             sidebar: '#1f2937',
-            sidebarHover: '#374151'
+            sidebarHover: '#374151',
           }
         }
       }
@@ -21,36 +20,59 @@
   </script>
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-100 min-h-screen">
+
+<body class="bg-black text-white min-h-screen">
 
   <!-- Header -->
-  <header class="bg-primary text-white p-4 shadow">
+  <header class="bg-gray-800 text-white p-4 shadow">
     <h1 class="text-2xl font-bold">Super Admin Dashboard</h1>
   </header>
 
   <!-- Layout -->
   <div class="flex h-[calc(100vh-64px)]">
+    
     <!-- Sidebar -->
-    <aside class="w-64 bg-sidebar text-white p-4 space-y-4 flex flex-col justify-between">
-      <nav class="space-y-2">
-        <button onclick="setActive(this); loadModule('roles')" class="nav-link flex items-center w-full px-3 py-2 rounded hover:bg-sidebarHover transition">
-          <i data-lucide="shield" class="w-5 h-5 mr-2"></i><span>Manage Roles</span>
-        </button>
-        <button onclick="setActive(this); loadModule('pages')" class="nav-link flex items-center w-full px-3 py-2 rounded hover:bg-sidebarHover transition">
-          <i data-lucide="file-text" class="w-5 h-5 mr-2"></i><span>Manage Pages</span>
-        </button>
-        <button onclick="setActive(this); loadModule('users')" class="nav-link flex items-center w-full px-3 py-2 rounded hover:bg-sidebarHover transition">
-          <i data-lucide="users" class="w-5 h-5 mr-2"></i><span>Manage Users</span>
-        </button>
-      </nav>
-      <button onclick="logout()" class="flex items-center px-3 py-2 rounded bg-red-600 hover:bg-red-700 transition">
-        <i data-lucide="log-out" class="w-5 h-5 mr-2"></i><span>Logout</span>
+    <aside id="sidebar" class="w-64 transition-all duration-300 bg-sidebar p-4 space-y-4 flex flex-col justify-between">
+      <!-- Sidebar Top: Navigation & Toggle -->
+      <div>
+        <div class="flex justify-between items-center mb-4">
+          <span class="font-semibold text-lg label">Menu</span>
+          <button onclick="toggleSidebar()" class="p-1 rounded hover:bg-gray-700 transition">
+            <svg id="toggleIcon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        </div>
+        <nav class="space-y-2">
+          <button onclick="setActive(this); loadModule('roles')" class="nav-link flex items-center w-full px-3 py-2 rounded hover:bg-sidebarHover transition">
+            <svg data-lucide="shield" class="icon w-5 h-5 mr-2"></svg><span class="label">Manage Roles</span>
+          </button>
+          <button onclick="setActive(this); loadModule('pages')" class="nav-link flex items-center w-full px-3 py-2 rounded hover:bg-sidebarHover transition">
+            <svg data-lucide="file-text" class="icon w-5 h-5 mr-2"></svg><span class="label">Manage Pages</span>
+          </button>
+          <button onclick="setActive(this); loadModule('users')" class="nav-link flex items-center w-full px-3 py-2 rounded hover:bg-sidebarHover transition">
+            <svg data-lucide="users" class="icon w-5 h-5 mr-2"></svg><span class="label">Manage Users</span>
+          </button>
+          <button onclick="setActive(this); loadModule('menu')" class="nav-link flex items-center w-full px-3 py-2 rounded hover:bg-sidebarHover transition">
+            <svg data-lucide="layout-grid" class="icon w-5 h-5 mr-2"></svg><span class="label">Manage Menu</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Sidebar Bottom: Logout -->
+      <button onclick="logout()" class="flex items-center px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 transition">
+        <svg data-lucide="log-out" class="icon w-5 h-5 mr-2"></svg><span class="label">Logout</span>
       </button>
     </aside>
 
     <!-- Main Content -->
-    <main class="flex-1 bg-gray-50 dark:bg-gray-800 p-4">
-      <iframe id="moduleFrame" src="manage-roles.html" class="w-full h-full rounded border dark:border-gray-700 shadow-inner"></iframe>
+    <main class="flex-1 bg-gray-900 p-4 relative">
+      <iframe id="moduleFrame" src="manage-roles.html" class="w-full h-full rounded border border-gray-700 shadow-inner"></iframe>
+
+      <!-- Toast -->
+      <div id="toast" class="hidden absolute bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded shadow-lg border border-gray-600">
+        Logged out successfully!
+      </div>
     </main>
   </div>
 
@@ -65,7 +87,8 @@
       const src = {
         roles: 'manage-roles.html',
         pages: 'manage-pages.html',
-        users: 'manage-users.html'
+        users: 'manage-users.html',
+        menu: 'manage-menu.html'
       }[module] || 'manage-roles.html';
       document.getElementById('moduleFrame').src = src;
     }
@@ -77,7 +100,39 @@
 
     function logout() {
       localStorage.removeItem("isLoggedIn");
-      window.location.href = "index.html";
+      showToast();
+      setTimeout(() => {
+        window.location.href = "index.html";
+      }, 1200);
+    }
+
+    function showToast() {
+      const toast = document.getElementById('toast');
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 1000);
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const isCollapsed = sidebar.classList.contains('w-16');
+
+      sidebar.classList.toggle('w-64');
+      sidebar.classList.toggle('w-16');
+
+      // Toggle label visibility
+      document.querySelectorAll('.label').forEach(label => label.classList.toggle('hidden'));
+
+      // Fix icon alignment
+      document.querySelectorAll('.icon').forEach(icon => {
+        icon.classList.toggle('mr-2', !isCollapsed);
+        icon.classList.toggle('mx-auto', isCollapsed);
+      });
+
+      // Flip toggle arrow
+      const toggleIcon = document.getElementById("toggleIcon");
+      toggleIcon.innerHTML = isCollapsed
+        ? `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />`
+        : `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />`;
     }
   </script>
 </body>

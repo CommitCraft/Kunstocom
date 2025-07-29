@@ -1,13 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
   <title>Manage Roles</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#10b981',
+            sidebar: '#1f2937',
+            sidebarHover: '#374151'
+          }
+        }
+      }
+    };
+  </script>
 </head>
-<body class="bg-gray-100 p-6">
-  <div class="max-w-3xl mx-auto bg-white p-6 rounded shadow">
-    <h2 class="text-2xl font-bold mb-4 border-b pb-2">Manage Roles & Assign Pages</h2>
+<body class="bg-gray-900 text-white p-6">
+
+    <h2 class="text-2xl font-bold mb-4 border-b border-gray-600 pb-2">Manage Roles & Assign Pages</h2>
 
     <!-- Add/Edit Role Form -->
     <form id="add-role-form" class="space-y-4 mb-6">
@@ -15,22 +29,22 @@
       <div>
         <label class="block font-semibold mb-1">Role Name</label>
         <input id="roleName" placeholder="Enter role name"
-          class="w-full px-4 py-2 border rounded focus:outline-none focus:ring focus:ring-green-400" />
+          class="w-full px-4 py-2 border border-gray-600 rounded bg-gray-700 text-white focus:outline-none focus:ring focus:ring-green-400" />
       </div>
       <div>
         <label class="block font-semibold mb-1">Assign Pages</label>
         <select id="pageSelect" multiple
-          class="w-full h-32 border rounded px-3 py-2 focus:outline-none focus:ring focus:ring-green-400"></select>
+          class="w-full h-32 border border-gray-600 rounded bg-gray-700 text-white px-3 py-2 focus:outline-none focus:ring focus:ring-green-400"></select>
       </div>
       <div class="flex gap-2">
-        <button class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Save Role</button>
-        <button type="button" onclick="resetForm()" class="text-gray-500 underline">Cancel</button>
+        <button class="bg-white text-gray-900 px-4 py-2 rounded hover:bg-gray-200 font-semibold">Save Role</button>
+        <button type="button" onclick="resetForm()" class="text-gray-400 hover:underline">Cancel</button>
       </div>
     </form>
 
     <!-- Role List -->
     <ul id="roleList" class="space-y-3"></ul>
-  </div>
+  
 
   <script>
     const API_BASE = 'http://127.0.0.1:1880/api';
@@ -50,7 +64,7 @@
       await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, pageIds })  // FIXED HERE
+        body: JSON.stringify({ name, pageIds })
       });
 
       resetForm();
@@ -75,79 +89,51 @@
         select.appendChild(opt);
       });
     }
+
     async function loadRoles() {
-  const res = await fetch(`${API_BASE}/roles`);
-  const rawData = await res.json();
-  const roleMap = {};
+      const res = await fetch(`${API_BASE}/roles`);
+      const rawData = await res.json();
+      const roleMap = {};
 
-  // Group roles by role_id
-  rawData.forEach(({ role_id, role_name, page_id, page_name }) => {
-    if (!roleMap[role_id]) {
-      roleMap[role_id] = {
-        id: role_id,
-        name: role_name,
-        pages: []
-      };
+      rawData.forEach(({ role_id, role_name, page_id, page_name }) => {
+        if (!roleMap[role_id]) {
+          roleMap[role_id] = {
+            id: role_id,
+            name: role_name,
+            pages: []
+          };
+        }
+        if (page_id && page_name) {
+          roleMap[role_id].pages.push({ id: page_id, name: page_name });
+        }
+      });
+
+      const roles = Object.values(roleMap);
+      const list = document.getElementById('roleList');
+      list.innerHTML = '';
+
+      roles.forEach(role => {
+        const li = document.createElement('li');
+        li.className = 'bg-gray-700 p-4 rounded shadow flex justify-between items-start';
+        li.innerHTML = `
+          <div>
+            <div class="font-semibold text-lg">${role.name}</div>
+            <div class="text-sm text-gray-300 mt-1">
+              Pages: ${
+                role.pages.length
+                  ? role.pages.map(p => `<span class="bg-green-800 text-white px-2 py-1 rounded mr-1">${p.name}</span>`).join('')
+                  : '—'
+              }
+            </div>
+          </div>
+          <div class="flex flex-col gap-1">
+            <button onclick='editRole(${JSON.stringify(role)})' class="text-blue-400 hover:underline">Edit</button>
+            <button onclick="deleteRole(${role.id})" class="text-red-400 hover:underline">Delete</button>
+          </div>
+        `;
+        list.appendChild(li);
+      });
     }
-
-    if (page_id && page_name) {
-      roleMap[role_id].pages.push({ id: page_id, name: page_name });
-    }
-  });
-
-  const roles = Object.values(roleMap);
-
-  const list = document.getElementById('roleList');
-  list.innerHTML = '';
-
-  roles.forEach(role => {
-    const li = document.createElement('li');
-    li.className = 'bg-gray-50 p-4 rounded shadow flex justify-between items-start';
-    li.innerHTML = `
-      <div>
-        <div class="font-semibold text-lg">${role.name}</div>
-        <div class="text-sm text-gray-600 mt-1">
-          Pages: ${
-            role.pages.length
-              ? role.pages.map(p => `<span class="bg-green-100 text-green-800 px-2 py-1 rounded mr-1">${p.name}</span>`).join('')
-              : '—'
-          }
-        </div>
-      </div>
-      <div class="flex flex-col gap-1">
-        <button onclick='editRole(${JSON.stringify(role)})' class="text-blue-600 hover:underline">Edit</button>
-        <button onclick="deleteRole(${role.id})" class="text-red-600 hover:underline">Delete</button>
-      </div>
-    `;
-    list.appendChild(li);
-  });
-}
-
-
-    // async function loadRoles() {
-    //   const res = await fetch(`${API_BASE}/roles`);
-    //   const roles = await res.json();
-    //   const list = document.getElementById('roleList');
-    //   list.innerHTML = '';
-
-    //   roles.forEach(role => {
-    //     const li = document.createElement('li');
-    //     li.className = 'bg-gray-50 p-4 rounded shadow flex justify-between items-start';
-    //     li.innerHTML = `
-    //       <div>
-    //         <div class="font-semibold text-lg">${role.name}</div>
-    //         <div class="text-sm text-gray-600 mt-1">
-    //           Pages: ${role.pages && role.pages.length ? role.pages.map(p => `<span class="bg-green-100 text-green-800 px-2 py-1 rounded mr-1">${p.name}</span>`).join('') : '—'}
-    //         </div>
-    //       </div>
-    //       <div class="flex flex-col gap-1">
-    //         <button onclick='editRole(${JSON.stringify(role)})' class="text-blue-600 hover:underline">Edit</button>
-    //         <button onclick="deleteRole(${role.id})" class="text-red-600 hover:underline">Delete</button>
-    //       </div>
-    //     `;
-    //     list.appendChild(li);
-    //   });
-    // }
 
     function editRole(role) {
       document.getElementById('roleId').value = role.id;
