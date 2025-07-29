@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Manage Users</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-6 bg-white text-gray-800">
+  <h2 class="text-3xl font-bold mb-4 border-b border-green-400 pb-2">Manage Users</h2>
+
+  <form id="add-user-form" class="flex flex-col space-y-4 mb-6 max-w-5xl">
+    <input type="hidden" id="editing-user-id" value="">
+    <div class="flex flex-wrap gap-3 items-center">
+      <input id="user-username" type="text" placeholder="Username" required class="border rounded px-3 py-2 min-w-[140px]" />
+      
+      <div class="relative min-w-[140px]">
+        <input id="user-password" type="password" placeholder="Password" class="border rounded px-3 py-2 w-full pr-10" />
+        <button type="button" onclick="togglePassword()" class="absolute right-2 top-2 text-sm text-blue-600">👁️</button>
+      </div>
+      
+      <select id="user-role" required class="border rounded px-3 py-2 min-w-[140px]">
+        <option value="">Loading roles...</option>
+      </select>
+    </div>
+    <div class="flex gap-3">
+      <button type="submit" id="userAddBtn" class="bg-green-600 text-white px-5 py-2 rounded" disabled>Add User</button>
+      <button type="button" id="cancelEditBtn" onclick="resetForm()" class="hidden bg-gray-400 text-white px-4 py-2 rounded">Cancel</button>
+    </div>
+  </form>
+
+  <table class="w-full max-w-6xl border border-gray-300 rounded text-left">
+    <thead class="bg-green-100">
+      <tr>
+        <th class="px-4 py-2 border-b">ID</th>
+        <th class="px-4 py-2 border-b">Username</th>
+        <th class="px-4 py-2 border-b">Role</th>
+        <th class="px-4 py-2 border-b">Actions</th>
+      </tr>
+    </thead>
+    <tbody id="users-table-body" class="bg-white"></tbody>
+  </table>
+
+  <script>
+    const API_BASE = 'http://127.0.0.1:1880/api';
+
+    document.getElementById('add-user-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('user-username').value.trim();
+      const password = document.getElementById('user-password').value.trim();
+      const role_id = document.getElementById('user-role').value;
+      const id = document.getElementById('editing-user-id').value;
+
+      if (!username || !role_id) {
+        alert('Username and role are required');
+        return;
+      }
+
+      const payload = { username, role_id };
+      if (password) payload.password = password; // ✅ only send if changed
+
+      const method = id ? 'PUT' : 'POST';
+      const endpoint = id ? `${API_BASE}/users/${id}` : `${API_BASE}/users`;
+
+      try {
+        await fetch(endpoint, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        alert(id ? 'User updated successfully' : 'User added successfully');
+        resetForm();
+        loadUsers();
+      } catch (err) {
+        alert('Failed to submit');
+        console.error(err);
+      }
+    });
+
+    function togglePassword() {
+      const pw = document.getElementById('user-password');
+      pw.type = pw.type === 'password' ? 'text' : 'password';
+    }
+
+    function resetForm() {
+      document.getElementById('editing-user-id').value = '';
+      document.getElementById('user-username').value = '';
+      document.getElementById('user-password').value = '';
+      document.getElementById('user-role').value = '';
+      document.getElementById('userAddBtn').textContent = 'Add User';
+      document.getElementById('cancelEditBtn').classList.add('hidden');
+    }
+
+    async function loadUsers() {
+      const res = await fetch(`${API_BASE}/users`);
+      const users = await res.json();
+      const tbody = document.getElementById('users-table-body');
+      tbody.innerHTML = '';
+
+      users.forEach(u => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="border px-4 py-2">${u.id}</td>
+          <td class="border px-4 py-2">${u.username}</td>
+          <td class="border px-4 py-2">${u.role_name || u.role}</td>
+          <td class="border px-4 py-2 space-x-2">
+            <button onclick="editUser(${u.id}, '${u.username}', '${u.role_id}')" class="text-blue-600 hover:underline">Edit</button>
+            <button onclick="deleteUser(${u.id})" class="text-red-600 hover:underline">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function deleteUser(id) {
+      if (!confirm('Delete this user?')) return;
+      await fetch(`${API_BASE}/users/${id}`, { method: 'DELETE' });
+      loadUsers();
+    }
+
+    function editUser(id, username, role_id) {
+      document.getElementById('editing-user-id').value = id;
+      document.getElementById('user-username').value = username;
+      document.getElementById('user-role').value = role_id;
+      document.getElementById('user-password').value = '';
+      document.getElementById('userAddBtn').textContent = 'Update User';
+      document.getElementById('cancelEditBtn').classList.remove('hidden');
+    }
+
+    async function loadRoles() {
+  try {
+    const res = await fetch(`${API_BASE}/roles`);
+    const roles = await res.json();
+
+    const roleSelect = document.getElementById('user-role');
+    roleSelect.innerHTML = '<option value="">Select role</option>';
+
+    roles.forEach(role => {
+      const option = document.createElement('option');
+      option.value = role.role_id; // ✅ role.id should match database role_id
+      option.textContent = role.role_name;
+      roleSelect.appendChild(option);
+    });
+
+    // ✅ Enable submit button only after roles are loaded
+    document.getElementById('userAddBtn').disabled = false;
+  } catch (err) {
+    alert("Failed to load roles");
+    console.error(err);
+  }
+}
+
+
+    loadRoles();
+    loadUsers();
+  </script>
+</body>
+</html>
