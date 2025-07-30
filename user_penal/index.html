@@ -32,6 +32,60 @@
   </form>
 
   <script>
+  const API_BASE = "http://127.0.0.1:1880";
+
+  const loginForm = document.getElementById("loginForm");
+  const errDiv = document.getElementById("err");
+  const loginBtn = document.getElementById("loginBtn");
+
+  loginForm.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    errDiv.classList.add("hidden");
+    loginBtn.disabled = true;
+    loginBtn.innerText = "Logging in...";
+
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value;
+
+    try {
+      // Step 1: Authenticate
+      const res = await fetch(`${API_BASE}/api/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Invalid credentials!");
+      }
+
+      // Step 2: Fetch menu after login
+      const menuRes = await fetch(`${API_BASE}/menus`);
+      const menuData = await menuRes.json();
+
+      if (!Array.isArray(menuData)) {
+        throw new Error("Menu fetch failed.");
+      }
+
+      // Step 3: Save to localStorage
+      localStorage.setItem("isLoggedIn", "true");
+      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("menu", JSON.stringify(menuData));
+
+      // Redirect
+      window.location.href = "dashboard.html";
+    } catch (error) {
+      errDiv.textContent = error.message || "Login failed!";
+      errDiv.classList.remove("hidden");
+    }
+
+    loginBtn.disabled = false;
+    loginBtn.innerText = "Login";
+  });
+</script>
+
+  <!-- <script>
     const API_BASE = "http://localhost:1880";
   
     const loginForm = document.getElementById("loginForm");
@@ -63,6 +117,7 @@
           localStorage.setItem("isLoggedIn", "true");
           localStorage.setItem("user", JSON.stringify(data.user));
           localStorage.setItem("pages", JSON.stringify(data.pages));
+          localStorage.setItem("menu", JSON.stringify(data.menu));
           window.location.href = "dashboard.html";
         } else {
           errDiv.textContent = data.message || "Invalid credentials!";
@@ -77,6 +132,6 @@
       loginBtn.disabled = false;
       loginBtn.innerText = "Login";
     });
-  </script>
+  </script> -->
 </body>
 </html>

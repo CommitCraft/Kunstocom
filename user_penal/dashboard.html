@@ -19,6 +19,10 @@
     };
   </script>
   <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+  .rotate-180 { transform: rotate(180deg); }
+</style>
+
 </head>
 
 <body class="bg-black text-white min-h-screen">
@@ -128,33 +132,251 @@
       return btn;
     }
 
-    // Render sidebar menus dynamically from stored pages array
     function renderSidebarMenus() {
-      const pagesStr = localStorage.getItem("pages");
-      const sidebarNav = document.getElementById("sidebarNav");
-      if (!sidebarNav) return;
+  const menuStr = localStorage.getItem("menu");
+  const sidebarNav = document.getElementById("sidebarNav");
+  if (!sidebarNav || !menuStr) return;
 
-      sidebarNav.innerHTML = ''; // Clear current menus
+  sidebarNav.innerHTML = '';
 
-      if (!pagesStr) {
-        sidebarNav.textContent = "No menu available";
-        return;
-      }
+  const raw = JSON.parse(menuStr);
 
-      const pages = JSON.parse(pagesStr);
+  const menus = {};
 
-      pages.forEach(page => {
-        const menuBtn = createMenuItem(page);
-        sidebarNav.appendChild(menuBtn);
-      });
+  // Step 1: Group items by title
+  raw.forEach(item => {
+    const key = item.title;
 
-      // Set first menu as active and load its page by default
-      if (pages.length > 0) {
-        sidebarNav.children[0].classList.add("bg-sidebarHover");
-        document.getElementById('moduleFrame').src = pages[0].url;
-      }
-      lucide.createIcons(); // Refresh icons after dynamic insertion
+    if (!menus[key]) {
+      menus[key] = {
+        title: key,
+        children: [],
+        type: item.type === "menu" ? "menu" : "submenu"
+      };
     }
+
+    if (item.type === "menu") {
+      menus[key].url = item.url;
+      menus[key].name = item.page_name;
+    } else {
+      menus[key].children.push({
+        name: item.page_name,
+        url: item.url
+      });
+    }
+  });
+
+  // Step 2: Convert to sorted array
+  const sortedMenus = Object.values(menus).sort((a, b) => a.title.localeCompare(b.title));
+
+  // Recursive DOM builder
+  function buildTree(items, level = 0) {
+    const container = document.createElement('div');
+    items.forEach(item => {
+      const hasChildren = item.children && item.children.length > 0;
+      const wrapper = document.createElement('div');
+      wrapper.className = `ml-${level * 4} mb-1`;
+
+      const btn = document.createElement('button');
+      btn.className = `nav-link flex items-center justify-between w-full px-3 py-2 rounded hover:bg-sidebarHover transition`;
+
+      const left = document.createElement('div');
+      left.className = 'flex items-center';
+
+      const iconNameMap = {
+        "Dashboard": "layout-dashboard",
+        "User": "users",
+        "Roles": "shield",
+        "Pages": "file-text",
+        "Home": "home",
+        "Resport": "bar-chart"
+      };
+      const iconName = iconNameMap[item.title || item.name] || "file-text";
+
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("data-lucide", iconName);
+      svg.classList.add("icon", "w-5", "h-5", "mr-2");
+      left.appendChild(svg);
+
+      const span = document.createElement('span');
+      span.className = "label";
+      span.textContent = item.title || item.name;
+      left.appendChild(span);
+
+      btn.appendChild(left);
+
+      if (hasChildren) {
+        const arrow = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        arrow.setAttribute("data-lucide", "chevron-down");
+        arrow.classList.add("arrow", "w-4", "h-4", "transition-transform");
+        btn.appendChild(arrow);
+      }
+
+      btn.onclick = () => {
+        setActive(btn);
+        if (item.url) {
+          document.getElementById('moduleFrame').src = item.url;
+        }
+        if (hasChildren) {
+          submenuDiv.classList.toggle("hidden");
+          btn.querySelector(".arrow")?.classList.toggle("rotate-180");
+        }
+      };
+
+      wrapper.appendChild(btn);
+
+      let submenuDiv;
+      if (hasChildren) {
+        submenuDiv = buildTree(item.children, level + 1);
+        submenuDiv.classList.add("ml-4", "hidden");
+        wrapper.appendChild(submenuDiv);
+      }
+
+      container.appendChild(wrapper);
+    });
+
+    return container;
+  }
+
+  sidebarNav.appendChild(buildTree(sortedMenus));
+  lucide.createIcons();
+
+  // Auto-load first available URL
+  const first = raw.find(m => m.url);
+  if (first) document.getElementById('moduleFrame').src = first.url;
+}
+
+
+
+//     function renderSidebarMenus() {
+//   const menuStr = localStorage.getItem("menu");
+//   const sidebarNav = document.getElementById("sidebarNav");
+//   if (!sidebarNav || !menuStr) return;
+
+//   sidebarNav.innerHTML = '';
+
+//   const raw = JSON.parse(menuStr);
+
+//   const menus = {};
+//   const submenus = {};
+//   const childmenus = [];
+
+//   // Categorize menu items
+//   raw.forEach(item => {
+//     if (item.type === "menu") {
+//       menus[item.title] = { title: item.title, children: [] };
+//     } else if (item.type === "submenu") {
+//       if (!submenus[item.parent]) submenus[item.parent] = [];
+//       submenus[item.parent].push({
+//         title: item.title,
+//         name: item.page_name,
+//         url: item.url
+//       });
+//     } else if (item.type === "childmenu") {
+//       childmenus.push(item);
+//     }
+//   });
+
+//   // Attach submenus under menus
+//   Object.keys(submenus).forEach(parent => {
+//     if (menus[parent]) {
+//       menus[parent].children = submenus[parent];
+//     }
+//   });
+
+//   // Attach childmenus under submenus
+//   childmenus.forEach(child => {
+//     for (const menu of Object.values(menus)) {
+//       const targetSub = menu.children?.find(sub => sub.title === child.parent);
+//       if (targetSub) {
+//         if (!targetSub.children) targetSub.children = [];
+//         targetSub.children.push({ name: child.page_name, url: child.url });
+//       }
+//     }
+//   });
+
+//   // Sort alphabetically by menu title
+//   const sortedMenus = Object.values(menus).sort((a, b) => a.title.localeCompare(b.title));
+
+//   // Recursive DOM builder
+//   function buildTree(items, level = 0) {
+//     const container = document.createElement('div');
+//     items.forEach(item => {
+//       const hasChildren = item.children && item.children.length > 0;
+//       const wrapper = document.createElement('div');
+//       wrapper.className = `ml-${level * 4} mb-1`;
+
+//       const btn = document.createElement('button');
+//       btn.className = `nav-link flex items-center justify-between w-full px-3 py-2 rounded hover:bg-sidebarHover transition`;
+
+//       const left = document.createElement('div');
+//       left.className = 'flex items-center';
+
+//       const iconNameMap = {
+//         "Dashboard": "layout-dashboard",
+//         "User": "users",
+//         "Roles": "shield",
+//         "Pages": "file-text",
+//         "Home": "home"
+//       };
+//       const iconName = iconNameMap[item.title || item.name] || "file-text";
+
+//       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+//       svg.setAttribute("data-lucide", iconName);
+//       svg.classList.add("icon", "w-5", "h-5", "mr-2");
+//       left.appendChild(svg);
+
+//       const span = document.createElement('span');
+//       span.className = "label";
+//       span.textContent = item.title || item.name;
+//       left.appendChild(span);
+
+//       btn.appendChild(left);
+
+//       if (hasChildren) {
+//         const arrow = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+//         arrow.setAttribute("data-lucide", "chevron-down");
+//         arrow.classList.add("arrow", "w-4", "h-4", "transition-transform");
+//         btn.appendChild(arrow);
+//       }
+
+//       btn.onclick = () => {
+//         setActive(btn);
+//         if (item.url) {
+//           document.getElementById('moduleFrame').src = item.url;
+//         }
+//         if (hasChildren) {
+//           submenuDiv.classList.toggle("hidden");
+//           btn.querySelector(".arrow")?.classList.toggle("rotate-180");
+//         }
+//       };
+
+//       wrapper.appendChild(btn);
+
+//       let submenuDiv;
+//       if (hasChildren) {
+//         submenuDiv = buildTree(item.children, level + 1);
+//         submenuDiv.classList.add("ml-4", "hidden");
+//         wrapper.appendChild(submenuDiv);
+//       }
+
+//       container.appendChild(wrapper);
+//     });
+
+//     return container;
+//   }
+
+//   sidebarNav.appendChild(buildTree(sortedMenus));
+//   lucide.createIcons();
+
+//   // Auto-load first available URL
+//   const first = raw.find(m => m.url);
+//   if (first) document.getElementById('moduleFrame').src = first.url;
+// }
+
+
+
+  
 
     function setActive(el) {
       document.querySelectorAll("#sidebarNav .nav-link").forEach(btn => btn.classList.remove("bg-sidebarHover"));

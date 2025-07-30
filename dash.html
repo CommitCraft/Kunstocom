@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <title>Super Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .active-link {
+      background-color: #2563eb;
+      color: white;
+    }
+  </style>
+</head>
+<body class="flex h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-white">
+  <!-- Sidebar -->
+  <div class="w-64 bg-white dark:bg-gray-800 p-4 overflow-y-auto">
+    <h2 class="text-xl font-bold mb-4">Menu</h2>
+    <ul id="menu-container" class="space-y-1"></ul>
+  </div>
+
+  <!-- Main Content -->
+  <div class="flex-1 p-4">
+    <iframe id="content-frame" src="" class="w-full h-full border rounded-lg"></iframe>
+  </div>
+
+  <script>
+    async function fetchMenu() {
+      const res = await fetch('http://127.0.0.1:1880/menus');
+      const menuData = await res.json();
+      localStorage.setItem('menu', JSON.stringify(menuData));
+      return menuData;
+    }
+
+    function groupAndSortMenus(menuList) {
+      const grouped = {};
+
+      menuList.forEach(item => {
+        const title = item.title;
+        if (!grouped[title]) {
+          grouped[title] = {
+            title: title,
+            items: []
+          };
+        }
+        grouped[title].items.push(item);
+      });
+
+      return Object.values(grouped).sort((a, b) => a.title.localeCompare(b.title));
+    }
+
+    function renderMenu(groupedMenus) {
+      const container = document.getElementById('menu-container');
+      container.innerHTML = '';
+
+      groupedMenus.forEach(menuGroup => {
+        const li = document.createElement('li');
+        const submenuId = `submenu-${menuGroup.title.replace(/\s+/g, '')}`;
+
+        li.innerHTML = `
+          <div class="cursor-pointer px-3 py-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 font-medium" onclick="toggleSubmenu('${submenuId}')">
+            ${menuGroup.title}
+          </div>
+          <ul id="${submenuId}" class="ml-4 hidden space-y-1">
+            ${menuGroup.items.map(item => `
+              <li>
+                <a href="#" onclick="loadPage('${item.url}', this)" class="block px-3 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700">${item.page_name}</a>
+              </li>
+            `).join('')}
+          </ul>
+        `;
+        container.appendChild(li);
+      });
+    }
+
+    function toggleSubmenu(id) {
+      const submenu = document.getElementById(id);
+      submenu.classList.toggle('hidden');
+    }
+
+    function loadPage(url, linkEl) {
+      document.getElementById('content-frame').src = url;
+
+      document.querySelectorAll('#menu-container a').forEach(a => a.classList.remove('active-link'));
+      if (linkEl) linkEl.classList.add('active-link');
+    }
+
+    async function initMenu() {
+      const data = await fetchMenu();
+      const grouped = groupAndSortMenus(data);
+      renderMenu(grouped);
+
+      // Auto load first URL
+      if (grouped.length && grouped[0].items.length) {
+        loadPage(grouped[0].items[0].url);
+      }
+    }
+
+    initMenu();
+  </script>
+</body>
+</html>
