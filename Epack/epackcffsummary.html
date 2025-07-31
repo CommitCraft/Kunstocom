@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EPACK CFF PLANT</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            lightbox: '#DAE2F3',
+            lightgray: '#F2F2F2'
+          }
+        }
+      }
+    };
+  </script>
+
+  <link href="https://fonts.googleapis.com/css?family=Inter" rel="stylesheet" />
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #555;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+      margin-top: 4px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+
+<body class="bg-white dark:bg-gray-900 text-black dark:text-white min-h-screen p-4">
+
+  <!-- Header with Toggle -->
+<div class="bg-lightbox dark:bg-gray-700 text-center text-xl font-semibold rounded-lg py-2 mb-6">
+    CFF PLANT
+  </div>
+
+  <!-- <div class="flex justify-between items-center mb-6">
+    <div class="bg-lightbox dark:bg-gray-700 text-xl font-semibold rounded-lg py-2 px-4">
+      CFF PLANT
+    </div>
+    <button onclick="toggleDarkMode()" class="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-sm rounded">
+      Toggle Theme
+    </button>
+  </div> -->
+
+  <!-- Section Builder -->
+  <script>
+    function renderSection(title, prefix, unit) {
+      document.write(`
+        <div class="bg-lightgray dark:bg-gray-800 rounded-lg p-4 mb-6 space-y-4">
+          <div class="flex justify-between items-center">
+            <p class="text-lg font-semibold">${title}</p>
+            <span class="text-xs text-gray-500" id="${prefix}lastUpdated">Loading...</span>
+          </div>
+          <div class="flex flex-wrap gap-4">
+            ${[
+              ['Shift Capacity', 'daycapacity'],
+              ['Shift Plan', 'dayplan'],
+              ['Target till Now', 'targettillnow'],
+              ['Actual', 'actual'],
+              ['Difference', 'difference'],
+              ['Manpower', 'manpower'],
+              ['Cycle Time ' + unit, 'standardtime']
+            ].map(([label, id]) => `
+              <div class="flex-1 min-w-[150px] bg-lightbox dark:bg-gray-700 text-center rounded-lg p-2">
+                <p class="text-sm">${label}</p>
+                <p class="text-lg font-bold" id="${prefix}${id}"><span class="spinner"></span></p>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `);
+    }
+  </script>
+
+  <!-- Sections -->
+  <script>
+    renderSection("Ultrasonic Welding", "usw", "(s)");
+    renderSection("Annealing", "oven", "(h)");
+    renderSection("Runout Check", "ro", "(s)");
+    renderSection("Balancing", "bal", "(s)");
+    renderSection("Packing", "pack", "(s)");
+  </script>
+
+  <!-- Footer -->
+  <div class="bg-lightgray dark:bg-gray-800 rounded-lg p-4 mt-4 text-sm leading-relaxed">
+    The Calculations are as per the following setup:<br />
+    Ultrasonic Welding Mcs - 6 Nos. | Ovens - 2 Nos. | Runout Machines - 3 Nos. |
+    Balancing Machines - 6 Nos. | Packing Stations - 2 Nos.<br />
+    Process Type: Batch Process | Bottleneck Process: Oven | Max Deliverable Output / Shift: 3000
+  </div>
+
+  <!-- Data Fetcher -->
+  <script>
+    const baseURL = "http://127.0.0.1:1880/";
+
+    function updateTimestamp(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        const now = new Date();
+        el.textContent = "Last Updated: " + now.toLocaleTimeString();
+      }
+    }
+
+    function fetchData(endpoint, prefix) {
+      fetch(baseURL + endpoint)
+        .then(res => res.json())
+        .then(data => {
+          const fields = ['daycapacity', 'dayplan', 'targettillnow', 'actual', 'difference', 'manpower', 'standardtime'];
+          fields.forEach(field => {
+            const el = document.getElementById(`${prefix}${field}`);
+            if (el) el.textContent = data[field] ?? '-';
+          });
+
+          const actualEl = document.getElementById(`${prefix}actual`);
+          const diffEl = document.getElementById(`${prefix}difference`);
+          if (actualEl && data.actualcolor) actualEl.style.color = data.actualcolor;
+          if (diffEl && data.differencecolor) diffEl.style.color = data.differencecolor;
+
+          updateTimestamp(`${prefix}lastUpdated`);
+        })
+        .catch(err => {
+          console.error(`Error fetching ${endpoint}:`, err);
+          document.getElementById(`${prefix}lastUpdated`).textContent = "Error fetching data";
+        });
+    }
+
+    function updateAllSections() {
+      fetchData('usw', 'usw');
+      fetchData('oven', 'oven');
+      fetchData('runout', 'ro');
+      fetchData('balancing', 'bal');
+      fetchData('packing', 'pack');
+    }
+
+    setInterval(updateAllSections, 2000);
+    updateAllSections();
+
+    setTimeout(() => location.reload(), 60000);
+  </script>
+
+  <!-- Dark Mode Toggle -->
+  <!-- <script>
+    function toggleDarkMode() {
+      document.documentElement.classList.toggle('dark');
+    }
+  </script> -->
+</body>
+</html>

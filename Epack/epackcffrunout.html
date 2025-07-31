@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>EPACK CFF PLANT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: { colors: { lightBlock: "#f3f4f6", darkBlock: "#1f2937" } },
+        },
+      };
+    </script>
+    <script src="https://cdn.plot.ly/plotly-2.31.1.min.js"></script>
+  </head>
+  <body class="bg-white dark:bg-gray-900 text-white min-h-screen">
+    <div class="max-w-screen-xl mx-auto px-4 py-6">
+      <h1 class="text-3xl font-bold text-center mb-6">EPACK CFF PLANT</h1>
+
+      <!-- Runout Blocks -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div
+          id="ro01block"
+          class="text-center bg-lightBlock dark:bg-darkBlock rounded-xl shadow p-4"
+        >
+          <h2 class="text-lg font-semibold text-white">Runout Stn. 01</h2>
+          <p id="ro01" class="text-2xl font-bold mt-2 text-white">0 / 0</p>
+          <p class="text-sm text-white">(Actual / Target Till Now)</p>
+        </div>
+        <div
+          id="ro02block"
+          class="text-center bg-lightBlock dark:bg-darkBlock rounded-xl shadow p-4"
+        >
+          <h2 class="text-lg font-semibold text-white">Runout Stn. 02</h2>
+          <p id="ro02" class="text-2xl font-bold mt-2 text-white">0 / 0</p>
+          <p class="text-sm text-white">(Actual / Target Till Now)</p>
+        </div>
+        <div
+          id="ro03block"
+          class="text-center bg-lightBlock dark:bg-darkBlock rounded-xl shadow p-4"
+        >
+          <h2 class="text-lg font-semibold text-white">Runout Stn. 03</h2>
+          <p id="ro03" class="text-2xl font-bold mt-2 text-white">0 / 0</p>
+          <p class="text-sm text-white">(Actual / Target Till Now)</p>
+        </div>
+      </div>
+
+      <!-- Row 1 -->
+      <div class="flex flex-wrap gap-4 justify-between">
+        <div
+          class="bg-lightBlock dark:bg-darkBlock rounded-xl shadow-lg w-full lg:w-[49%] p-4"
+        >
+          <h2 class="text-xl font-semibold mb-2">Hourly UPH Trend</h2>
+          <div id="uphChart" class="h-[260px] w-full"></div>
+        </div>
+        <div
+          class="bg-lightBlock dark:bg-darkBlock rounded-xl shadow-lg w-full sm:w-[48%] lg:w-[24%] p-4 flex flex-col items-center"
+        >
+          <h2
+            class="text-xl font-semibold text-green-600 dark:text-green-400 mb-2"
+          >
+            Efficiency
+          </h2>
+          <div id="efficiency" class="w-[260px] h-[260px]"></div>
+        </div>
+        <div
+          class="bg-lightBlock dark:bg-darkBlock rounded-xl shadow-lg w-full sm:w-[48%] lg:w-[24%] p-4 flex flex-col items-center"
+        >
+          <h2
+            class="text-xl font-semibold text-blue-600 dark:text-blue-400 mb-2"
+          >
+            Quality
+          </h2>
+          <div id="quality" class="w-[260px] h-[260px]"></div>
+        </div>
+      </div>
+
+      <!-- Row 2 -->
+      <div class="flex flex-wrap gap-4 justify-between mt-6">
+        <div
+          class="bg-lightBlock dark:bg-darkBlock rounded-xl shadow-lg w-full lg:w-[49%] p-4"
+        >
+          <h2 class="text-xl font-semibold mb-2">Hourly UPPH Trend</h2>
+          <div id="upphChart" class="h-[260px] w-full"></div>
+        </div>
+        <div
+          class="bg-lightBlock dark:bg-darkBlock rounded-xl shadow-lg w-full lg:w-[49%] p-4 flex flex-col items-center"
+        >
+          <h2
+            class="text-xl font-semibold text-purple-600 dark:text-purple-400 mb-2"
+          >
+            Product Mix
+          </h2>
+          <div id="productMix" class="w-[260px] h-[260px]"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const baseUrl = "http://127.0.0.1:1880";
+
+      async function fetchRunout() {
+        const d = await fetch(`${baseUrl}/rodetails`).then((r) => r.json());
+        document.getElementById("ro01").innerText = d.ro01;
+        document.getElementById("ro02").innerText = d.ro02;
+        document.getElementById("ro03").innerText = d.ro03;
+      }
+
+      function renderDonut(id, value, color) {
+        const data = [
+          {
+            values: [value, 100 - value],
+            hole: 0.7,
+            type: "pie",
+            marker: { colors: [color, "#e5e7eb"] },
+            textinfo: "none",
+          },
+        ];
+        const layout = {
+          paper_bgcolor: "transparent",
+          margin: { t: 20, b: 20, l: 20, r: 20 },
+          showlegend: false,
+          annotations: [
+            {
+              font: { size: 28, color },
+              showarrow: false,
+              text: `${value.toFixed(1)}%`,
+              x: 0.5,
+              y: 0.5,
+            },
+          ],
+        };
+        Plotly.newPlot(id, data, layout, { displayModeBar: false });
+      }
+
+      async function fetchOEE() {
+        const data = await fetch(`${baseUrl}/rooee`).then((r) => r.json());
+        const used = parseFloat(
+          data.find((o) => o.label === "Productive")?.value || 0
+        );
+        renderDonut("efficiency", used, "#10b981");
+      }
+
+      async function fetchQuality() {
+        const data = await fetch(`${baseUrl}/roquality`).then((r) => r.json());
+        const used = parseFloat(
+          data.find((o) => o.label === "Pass")?.value || 0
+        );
+        renderDonut("quality", used, "#3b82f6");
+      }
+
+      async function fetchProductMix() {
+        const d = await fetch(`${baseUrl}/roproductmix`).then((r) => r.json());
+        const values = d.map((o) => o.value),
+          labels = d.map((o) => o.label);
+        const colors = ["#6366f1", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981"];
+        Plotly.newPlot(
+          "productMix",
+          [
+            {
+              values,
+              labels,
+              type: "pie",
+              hole: 0.5,
+              marker: { colors },
+              textinfo: "label+percent",
+            },
+          ],
+          {
+            height: 260,
+            width: 260,
+            margin: { t: 10, b: 10, l: 10, r: 10 },
+            paper_bgcolor: "transparent",
+            showlegend: false,
+          },
+          { displayModeBar: false }
+        );
+      }
+
+      async function renderLineChart(id, url, valueKey, targetKey, yTitle) {
+        const d = await fetch(`${baseUrl}/${url}`).then((r) => r.json());
+        const hours = d.hour;
+        const actual = d[valueKey];
+        const target = d[targetKey];
+
+        // ✅ Target line first (so it renders above)
+        const trace2 = {
+          x: hours,
+          y: target,
+          type: "scatter",
+          mode: "lines+markers",
+          name: "Target",
+          line: { dash: "dot", color: "#ef4444", width: 2 },
+        };
+
+        const trace1 = {
+          x: hours,
+          y: actual,
+          type: "scatter",
+          mode: "lines+markers",
+          name: "Actual",
+          line: { color: "#10b981", width: 2 },
+        };
+
+        const layout = {
+          paper_bgcolor: "transparent",
+          plot_bgcolor: "transparent",
+          margin: { t: 30, b: 40, l: 40, r: 20 },
+          xaxis: {
+            title: {
+              text: "Hour",
+              font: { color: "white" },
+              standoff: 10, // Adjust this value as needed
+            },
+            color: "white",
+            tickfont: { color: "white" },
+            tickmode: "array",
+            tickvals: hours,
+            ticktext: hours,
+            type: "category",
+          },
+          yaxis: {
+            title: yTitle,
+            color: "white",
+            titlefont: { color: "white" },
+            tickfont: { color: "white" },
+            rangemode: "tozero",
+          },
+          showlegend: true,
+          legend: {
+            orientation: "h",
+            x: 0.5,
+            xanchor: "center",
+            y: -0.2,
+            font: { color: "white" },
+          },
+        };
+
+        // ✅ Target trace first
+        Plotly.newPlot(id, [trace2, trace1], layout, { displayModeBar: false });
+      }
+
+      fetchRunout();
+      fetchOEE();
+      fetchQuality();
+      fetchProductMix();
+
+      // Charts on load
+      renderLineChart("uphChart", "rohourlydata", "actual", "plan", "UPH");
+      renderLineChart("upphChart", "roupphtrend", "upph", "target", "UPPH");
+
+      // Refresh every minute
+      setInterval(() => {
+        fetchRunout();
+        renderLineChart("uphChart", "rohourlydata", "actual", "plan", "UPH");
+        renderLineChart("upphChart", "roupphtrend", "upph", "target", "UPPH");
+        fetchOEE();
+        fetchQuality();
+        fetchProductMix();
+      }, 60000);
+    </script>
+  </body>
+</html>
