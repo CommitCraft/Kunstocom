@@ -154,37 +154,42 @@
       </button>
     </div>
   </div>
-  <script>
+<script>
 document.addEventListener("DOMContentLoaded", () => {
   const API_URL = "http://localhost:1880/time-check-report"; // Node-RED endpoint
 
-  function updateTimeSlots() {
+  const timeRanges = [
+    { label: "8:00 AM - 10:00 AM", start: 8, end: 10 },
+    { label: "10:00 AM - 12:00 PM", start: 10, end: 12 },
+    { label: "12:00 PM - 2:00 PM", start: 12, end: 14 },
+    { label: "2:00 PM - 4:00 PM", start: 14, end: 16 },
+    { label: "4:00 PM - 6:00 PM", start: 16, end: 18 },
+    { label: "6:00 PM - 8:00 PM", start: 18, end: 20 }
+  ];
+
+  function getCurrentTimeRangeIndex() {
     const now = new Date();
     const hours = now.getHours();
+    return timeRanges.findIndex(range => hours >= range.start && hours < range.end);
+  }
 
-    const timeRanges = [
-      { start: 8, end: 10 },
-      { start: 10, end: 12 },
-      { start: 12, end: 14 },
-      { start: 14, end: 16 },
-      { start: 16, end: 18 },
-      { start: 18, end: 20 }
-    ];
-
+  function updateTimeSlots() {
+    const currentIndex = getCurrentTimeRangeIndex();
     const rows = document.querySelectorAll("tbody tr");
 
     rows.forEach((row, index) => {
-      const range = timeRanges[index];
       const inputs = row.querySelectorAll("input, select");
 
-      if (hours >= range.start && hours < range.end) {
+      if (index === currentIndex) {
         inputs.forEach(input => input.disabled = false);
         row.classList.add("bg-green-100");
         row.classList.remove("bg-gray-100");
+        row.dataset.active = "true";
       } else {
         inputs.forEach(input => input.disabled = true);
         row.classList.add("bg-gray-100");
         row.classList.remove("bg-green-100");
+        row.dataset.active = "false";
       }
     });
   }
@@ -203,6 +208,47 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 3000);
   }
 
+  function normalizeTime(str) {
+  return str
+    .toLowerCase()
+    .replace(/\s+/g, " ")       // multiple spaces → single space
+    .replace(/am/g, "am")       // normalize am
+    .replace(/pm/g, "pm")       // normalize pm
+    .replace(/^0+/g, "")        // remove leading zeros from start
+    .trim();
+}
+
+async function loadCurrentTimeSlotData() {
+  const section = document.getElementById("section").value;
+  const checkpoint = document.getElementById("checkpoint").value;
+  const mold = document.getElementById("mold").value;
+  const spec = document.getElementById("spec").value;
+  const tool = document.getElementById("tool").value;
+
+  try {
+    const res = await fetch(`${API_URL}?section=${encodeURIComponent(section)}&checkpoint=${encodeURIComponent(checkpoint)}&mold=${encodeURIComponent(mold)}&spec=${encodeURIComponent(spec)}&tool=${encodeURIComponent(tool)}`);
+    if (res.ok) {
+      const data = await res.json();
+
+      data.forEach(item => {
+        const rows = document.querySelectorAll("tbody tr");
+        rows.forEach(row => {
+          const timeCell = row.querySelector("td").textContent.trim();
+
+          if (normalizeTime(timeCell) === normalizeTime(item.time_range)) {
+            row.querySelectorAll("input")[0].value = item.measured_value || "";
+            row.querySelector("select").value = item.result || "OK";
+            row.querySelectorAll("input")[1].value = item.remarks || "";
+          }
+        });
+      });
+    }
+  } catch (err) {
+    console.error("Error fetching data:", err);
+  }
+}
+
+ 
   document.getElementById("submitBtn").addEventListener("click", async () => {
     const section = document.getElementById("section").value;
     const checkpoint = document.getElementById("checkpoint").value;
@@ -215,35 +261,28 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Collect table data
-    const rows = document.querySelectorAll("tbody tr");
-    const timeRanges = [
-      "8:00 AM - 10:00 AM",
-      "10:00 AM - 12:00 PM",
-      "12:00 PM - 2:00 PM",
-      "2:00 PM - 4:00 PM",
-      "4:00 PM - 6:00 PM",
-      "6:00 PM - 8:00 PM"
-    ];
+    const activeRow = document.querySelector("tbody tr[data-active='true']");
+    if (!activeRow) {
+      showToast("No active time slot available to submit!", "error");
+      return;
+    }
 
-    const reportData = [];
-    rows.forEach((row, index) => {
-      const measuredValue = row.querySelector("input").value;
-      const result = row.querySelector("select").value;
-      const remarks = row.querySelectorAll("input")[1].value;
+    const currentIndex = getCurrentTimeRangeIndex();
+    const measuredValue = activeRow.querySelectorAll("input")[0].value;
+    const result = activeRow.querySelector("select").value;
+    const remarks = activeRow.querySelectorAll("input")[1].value;
 
-      reportData.push({
-        section,
-        checkpoint,
-        mold,
-        spec,
-        tool,
-        time_range: timeRanges[index],
-        measured_value: measuredValue,
-        result,
-        remarks
-      });
-    });
+    const reportData = {
+      section,
+      checkpoint,
+      mold,
+      spec,
+      tool,
+      time_range: timeRanges[currentIndex].label,
+      measured_value: measuredValue,
+      result,
+      remarks
+    };
 
     try {
       const res = await fetch(API_URL, {
@@ -263,83 +302,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // On load
   updateTimeSlots();
-  setInterval(updateTimeSlots, 60 * 1000);
+  loadCurrentTimeSlotData();
+
+  // Update every minute
+  setInterval(() => {
+    updateTimeSlots();
+    loadCurrentTimeSlotData();
+  }, 60 * 1000);
 });
 </script>
-
-
-<!-- <script>
-document.addEventListener("DOMContentLoaded", () => {
-
-  // Time slot highlight logic
-  function updateTimeSlots() {
-    const now = new Date();
-    const hours = now.getHours();
-
-    const timeRanges = [
-      { start: 8, end: 10 },
-      { start: 10, end: 12 },
-      { start: 12, end: 14 },
-      { start: 14, end: 16 },
-      { start: 16, end: 18 },
-      { start: 18, end: 20 }
-    ];
-
-    const rows = document.querySelectorAll("tbody tr");
-
-    rows.forEach((row, index) => {
-      const range = timeRanges[index];
-      const inputs = row.querySelectorAll("input, select");
-
-      if (hours >= range.start && hours < range.end) {
-        inputs.forEach(input => input.disabled = false);
-        row.classList.add("bg-green-100");
-        row.classList.remove("bg-gray-100");
-      } else {
-        inputs.forEach(input => input.disabled = true);
-        row.classList.add("bg-gray-100");
-        row.classList.remove("bg-green-100");
-      }
-    });
-  }
-
-  // Show toast message
-  function showToast(message, type) {
-    const toast = document.getElementById("toast");
-    toast.textContent = message;
-
-    // Change background color based on type
-    toast.className = `fixed top-5 right-5 text-white px-6 py-3 rounded-lg shadow-lg transform transition-all duration-500 z-50
-      ${type === "success" ? "bg-green-500" : "bg-red-500"}
-    `;
-
-    toast.classList.remove("opacity-0", "-translate-y-5");
-    toast.classList.add("opacity-100", "translate-y-0");
-
-    setTimeout(() => {
-      toast.classList.remove("opacity-100", "translate-y-0");
-      toast.classList.add("opacity-0", "-translate-y-5");
-    }, 3000);
-  }
-
-  // Button click event
-  document.getElementById("submitBtn").addEventListener("click", () => {
-    const section = document.getElementById("section").value;
-    const checkpoint = document.getElementById("checkpoint").value;
-
-    // Example validation: Ensure Section & Checkpoint are selected
-    if (!section || !checkpoint) {
-      showToast("Please fill all required fields!", "error");
-    } else {
-      showToast("Report submitted successfully!", "success");
-    }
-  });
-
-  updateTimeSlots();
-  setInterval(updateTimeSlots, 60 * 1000);
-});
-</script> -->
-
 </body>
 </html>
