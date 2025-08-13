@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href='https://fonts.googleapis.com/css?family=Inter' rel='stylesheet'>
+    <script src='https://cdn.plot.ly/plotly-2.27.0.min.js'></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+    <title>CFF ANNEALING OVENS</title>
+</head>
+<style>
+    body {
+        font-family: 'Inter';
+    }
+
+    p {
+        margin-block-start: 0px;
+        margin-block-end: 0px;
+    }
+
+    .container {
+        display: flex;
+        width: 100%;
+    }
+
+    .title {
+        background-color: #DAE2F3;
+        border-radius: 7px;
+        height: 40px;
+        width: 100%;
+        margin-top: 10px;
+        padding-top: 5px;
+        text-align: center;
+        font-size: 25px;
+    }
+
+    .sideblock {
+
+        text-align: center;
+        align-items: center;
+        justify-content: space-around;
+        background-color: #F2F2F2;
+        border-radius: 10px;
+        width: 100%;
+        height: 100%;
+        margin-left: 10px;
+
+    }
+
+    .iframe-container {
+        margin-top: 20px;
+        width: 100%;
+        /* Set width of the iframe container */
+        height: 800px;
+        /* Set height of the iframe container */
+        overflow: hidden;
+        /* Hide overflow to prevent scrolling */
+        position: relative;
+    }
+
+    .iframe-container iframe {
+        position: absolute;
+        top: -70px;
+        /* Adjust this value to show the desired section */
+        left: 0;
+        width: 100%;
+        height: 100%;
+        /* Make the iframe tall enough to include the desired section */
+        border: none;
+    }
+
+</style>
+
+<body>
+    <div class="title">
+        <p>CFF - Search</p>
+    </div>
+    <div class="container">
+
+        <div class="sideblock" style="margin-top: 10px;">
+            
+            <div class="iframe-container">
+                <iframe src="http://127.0.0.1:1880/dashboard/Search">
+                </iframe>
+            </div>
+
+</div>
+
+</body>
+
+</html>
