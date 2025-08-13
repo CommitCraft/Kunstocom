@@ -7,15 +7,20 @@
 </head>
 <body class="bg-gray-100 min-h-screen p-6">
 
+  <!-- Toast Notification (hidden initially) -->
+  <div id="toast" class="fixed top-5 right-5 text-white px-6 py-3 rounded-lg shadow-lg transform transition-all duration-500 translate-y-[-50px] opacity-0 z-50">
+    <!-- Message will be injected here -->
+  </div>
+
   <div class="max-w-5xl mx-auto bg-white p-6 rounded-2xl shadow-lg">
     <h1 class="text-2xl font-bold mb-4 text-center">Time Check Inspection Report</h1>
 
     <!-- Top selection form -->
-    <form class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+    <form id="reportForm" class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
       <div>
         <label class="block text-sm font-medium mb-1">Section</label>
-        <select class="w-full border rounded-lg p-2">
-          <option>Select Section</option>
+        <select class="w-full border rounded-lg p-2" id="section">
+          <option value="">Select Section</option>
           <option>Section A</option>
           <option>Section B</option>
           <option>Section C</option>
@@ -24,8 +29,8 @@
 
       <div>
         <label class="block text-sm font-medium mb-1">Check Point</label>
-        <select class="w-full border rounded-lg p-2">
-          <option>Select Check Point</option>
+        <select class="w-full border rounded-lg p-2" id="checkpoint">
+          <option value="">Select Check Point</option>
           <option>CP1</option>
           <option>CP2</option>
           <option>CP3</option>
@@ -34,8 +39,8 @@
 
       <div>
         <label class="block text-sm font-medium mb-1">Mold</label>
-        <select class="w-full border rounded-lg p-2">
-          <option>Select Mold</option>
+        <select class="w-full border rounded-lg p-2" id="mold">
+          <option value="">Select Mold</option>
           <option>Mold 1</option>
           <option>Mold 2</option>
         </select>
@@ -43,8 +48,8 @@
 
       <div>
         <label class="block text-sm font-medium mb-1">Spec / Method</label>
-        <select class="w-full border rounded-lg p-2">
-          <option>Select Spec</option>
+        <select class="w-full border rounded-lg p-2" id="spec">
+          <option value="">Select Spec</option>
           <option>Spec A</option>
           <option>Spec B</option>
         </select>
@@ -52,8 +57,8 @@
 
       <div>
         <label class="block text-sm font-medium mb-1">Measuring Tool</label>
-        <select class="w-full border rounded-lg p-2">
-          <option>Select Tool</option>
+        <select class="w-full border rounded-lg p-2" id="tool">
+          <option value="">Select Tool</option>
           <option>Caliper</option>
           <option>Micrometer</option>
         </select>
@@ -71,88 +76,88 @@
             <th class="border p-2 text-left">Remarks</th>
           </tr>
         </thead>
-       <tbody>
-  <tr>
-    <td class="border p-2">8:00 AM - 10:00 AM</td>
-    <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
-    <td class="border p-2">
-      <select class="w-full border rounded-lg p-1">
-        <option>OK</option>
-        <option>NG</option>
-      </select>
-    </td>
-    <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
-  </tr>
-  <tr>
-    <td class="border p-2">10:00 AM - 12:00 PM</td>
-    <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
-    <td class="border p-2">
-      <select class="w-full border rounded-lg p-1">
-        <option>OK</option>
-        <option>NG</option>
-      </select>
-    </td>
-    <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
-  </tr>
-  <tr>
-    <td class="border p-2">12:00 PM - 2:00 PM</td>
-    <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
-    <td class="border p-2">
-      <select class="w-full border rounded-lg p-1">
-        <option>OK</option>
-        <option>NG</option>
-      </select>
-    </td>
-    <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
-  </tr>
-  <tr>
-    <td class="border p-2">2:00 PM - 4:00 PM</td>
-    <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
-    <td class="border p-2">
-      <select class="w-full border rounded-lg p-1">
-        <option>OK</option>
-        <option>NG</option>
-      </select>
-    </td>
-    <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
-  </tr>
-  <tr>
-    <td class="border p-2">4:00 PM - 6:00 PM</td>
-    <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
-    <td class="border p-2">
-      <select class="w-full border rounded-lg p-1">
-        <option>OK</option>
-        <option>NG</option>
-      </select>
-    </td>
-    <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
-  </tr>
-  <tr>
-    <td class="border p-2">6:00 PM - 8:00 PM</td>
-    <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
-    <td class="border p-2">
-      <select class="w-full border rounded-lg p-1">
-        <option>OK</option>
-        <option>NG</option>
-      </select>
-    </td>
-    <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
-  </tr>
-</tbody>
-
+        <tbody>
+          <tr>
+            <td class="border p-2">8:00 AM - 10:00 AM</td>
+            <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
+            <td class="border p-2">
+              <select class="w-full border rounded-lg p-1">
+                <option>OK</option>
+                <option>NG</option>
+              </select>
+            </td>
+            <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
+          </tr>
+          <tr>
+            <td class="border p-2">10:00 AM - 12:00 PM</td>
+            <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
+            <td class="border p-2">
+              <select class="w-full border rounded-lg p-1">
+                <option>OK</option>
+                <option>NG</option>
+              </select>
+            </td>
+            <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
+          </tr>
+          <tr>
+            <td class="border p-2">12:00 PM - 2:00 PM</td>
+            <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
+            <td class="border p-2">
+              <select class="w-full border rounded-lg p-1">
+                <option>OK</option>
+                <option>NG</option>
+              </select>
+            </td>
+            <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
+          </tr>
+          <tr>
+            <td class="border p-2">2:00 PM - 4:00 PM</td>
+            <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
+            <td class="border p-2">
+              <select class="w-full border rounded-lg p-1">
+                <option>OK</option>
+                <option>NG</option>
+              </select>
+            </td>
+            <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
+          </tr>
+          <tr>
+            <td class="border p-2">4:00 PM - 6:00 PM</td>
+            <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
+            <td class="border p-2">
+              <select class="w-full border rounded-lg p-1">
+                <option>OK</option>
+                <option>NG</option>
+              </select>
+            </td>
+            <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
+          </tr>
+          <tr>
+            <td class="border p-2">6:00 PM - 8:00 PM</td>
+            <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
+            <td class="border p-2">
+              <select class="w-full border rounded-lg p-1">
+                <option>OK</option>
+                <option>NG</option>
+              </select>
+            </td>
+            <td class="border p-2"><input type="text" class="w-full border rounded-lg p-1"></td>
+          </tr>
+        </tbody>
       </table>
     </div>
 
     <!-- Submit button -->
     <div class="text-center mt-6">
-      <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+      <button id="submitBtn" type="button" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
         Submit Report
       </button>
     </div>
   </div>
-<script>
+  <script>
 document.addEventListener("DOMContentLoaded", () => {
-  
+  const API_URL = "http://localhost:1880/time-check-report"; // Node-RED endpoint
+
   function updateTimeSlots() {
     const now = new Date();
     const hours = now.getHours();
@@ -184,15 +189,157 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Run on page load
+  function showToast(message, type) {
+    const toast = document.getElementById("toast");
+    toast.textContent = message;
+    toast.className = `fixed top-5 right-5 text-white px-6 py-3 rounded-lg shadow-lg transform transition-all duration-500 z-50
+      ${type === "success" ? "bg-green-500" : "bg-red-500"}`;
+    toast.classList.remove("opacity-0", "-translate-y-5");
+    toast.classList.add("opacity-100", "translate-y-0");
+
+    setTimeout(() => {
+      toast.classList.remove("opacity-100", "translate-y-0");
+      toast.classList.add("opacity-0", "-translate-y-5");
+    }, 3000);
+  }
+
+  document.getElementById("submitBtn").addEventListener("click", async () => {
+    const section = document.getElementById("section").value;
+    const checkpoint = document.getElementById("checkpoint").value;
+    const mold = document.getElementById("mold").value;
+    const spec = document.getElementById("spec").value;
+    const tool = document.getElementById("tool").value;
+
+    if (!section || !checkpoint) {
+      showToast("Please fill all required fields!", "error");
+      return;
+    }
+
+    // Collect table data
+    const rows = document.querySelectorAll("tbody tr");
+    const timeRanges = [
+      "8:00 AM - 10:00 AM",
+      "10:00 AM - 12:00 PM",
+      "12:00 PM - 2:00 PM",
+      "2:00 PM - 4:00 PM",
+      "4:00 PM - 6:00 PM",
+      "6:00 PM - 8:00 PM"
+    ];
+
+    const reportData = [];
+    rows.forEach((row, index) => {
+      const measuredValue = row.querySelector("input").value;
+      const result = row.querySelector("select").value;
+      const remarks = row.querySelectorAll("input")[1].value;
+
+      reportData.push({
+        section,
+        checkpoint,
+        mold,
+        spec,
+        tool,
+        time_range: timeRanges[index],
+        measured_value: measuredValue,
+        result,
+        remarks
+      });
+    });
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reportData)
+      });
+
+      if (res.ok) {
+        showToast("Report submitted successfully!", "success");
+      } else {
+        showToast("Failed to submit report!", "error");
+      }
+    } catch (error) {
+      console.error(error);
+      showToast("Error connecting to server!", "error");
+    }
+  });
+
   updateTimeSlots();
-
-  // Auto update every minute
   setInterval(updateTimeSlots, 60 * 1000);
-
 });
 </script>
 
+
+<!-- <script>
+document.addEventListener("DOMContentLoaded", () => {
+
+  // Time slot highlight logic
+  function updateTimeSlots() {
+    const now = new Date();
+    const hours = now.getHours();
+
+    const timeRanges = [
+      { start: 8, end: 10 },
+      { start: 10, end: 12 },
+      { start: 12, end: 14 },
+      { start: 14, end: 16 },
+      { start: 16, end: 18 },
+      { start: 18, end: 20 }
+    ];
+
+    const rows = document.querySelectorAll("tbody tr");
+
+    rows.forEach((row, index) => {
+      const range = timeRanges[index];
+      const inputs = row.querySelectorAll("input, select");
+
+      if (hours >= range.start && hours < range.end) {
+        inputs.forEach(input => input.disabled = false);
+        row.classList.add("bg-green-100");
+        row.classList.remove("bg-gray-100");
+      } else {
+        inputs.forEach(input => input.disabled = true);
+        row.classList.add("bg-gray-100");
+        row.classList.remove("bg-green-100");
+      }
+    });
+  }
+
+  // Show toast message
+  function showToast(message, type) {
+    const toast = document.getElementById("toast");
+    toast.textContent = message;
+
+    // Change background color based on type
+    toast.className = `fixed top-5 right-5 text-white px-6 py-3 rounded-lg shadow-lg transform transition-all duration-500 z-50
+      ${type === "success" ? "bg-green-500" : "bg-red-500"}
+    `;
+
+    toast.classList.remove("opacity-0", "-translate-y-5");
+    toast.classList.add("opacity-100", "translate-y-0");
+
+    setTimeout(() => {
+      toast.classList.remove("opacity-100", "translate-y-0");
+      toast.classList.add("opacity-0", "-translate-y-5");
+    }, 3000);
+  }
+
+  // Button click event
+  document.getElementById("submitBtn").addEventListener("click", () => {
+    const section = document.getElementById("section").value;
+    const checkpoint = document.getElementById("checkpoint").value;
+
+    // Example validation: Ensure Section & Checkpoint are selected
+    if (!section || !checkpoint) {
+      showToast("Please fill all required fields!", "error");
+    } else {
+      showToast("Report submitted successfully!", "success");
+    }
+  });
+
+  updateTimeSlots();
+  setInterval(updateTimeSlots, 60 * 1000);
+});
+</script> -->
 
 </body>
 </html>
