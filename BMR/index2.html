@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Time Check Monitoring Status</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-6">
+  <div class="max-w-full overflow-x-auto bg-white p-4 shadow-lg rounded-lg">
+    <h1 class="text-2xl font-bold mb-4">Time Check Monitoring Status</h1>
+
+    <table class="min-w-full border border-gray-300 text-center">
+      <thead class="bg-gray-200">
+        <tr>
+          <th class="border p-2 text-left">Name</th>
+          <th class="border p-2">8:00-10:00</th>
+          <th class="border p-2">10:00-12:00</th>
+          <th class="border p-2">12:00-2:00</th>
+          <th class="border p-2">2:00-4:00</th>
+          <th class="border p-2">4:00-6:00</th>
+        </tr>
+      </thead>
+      <tbody id="statusTable">
+        <!-- Rows will be injected here -->
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    // Status icons & colors mapping
+    const statusIcons = {
+      OK: '<span class="text-green-500 text-xl">✔</span>',
+      NG: '<span class="text-red-500 text-xl">✘</span>',
+      MISSED: '<span class="text-yellow-500 text-xl">⚠</span>',
+      NOT_CHECKED: '<span class="text-gray-400 text-xl">●</span>'
+    };
+
+    // Sample data (Replace with API call)
+    const sampleData = [
+      {
+        name: "Section A - CP1",
+        slots: { "8:00-10:00": "OK", "10:00-12:00": "NG", "12:00-2:00": "MISSED", "2:00-4:00": "OK", "4:00-6:00": "NOT_CHECKED" }
+      },
+      {
+        name: "Section B - CP2",
+        slots: { "8:00-10:00": "OK", "10:00-12:00": "OK", "12:00-2:00": "OK", "2:00-4:00": "MISSED", "4:00-6:00": "NG" }
+      },
+      {
+        name: "Section C - CP3",
+        slots: { "8:00-10:00": "NOT_CHECKED", "10:00-12:00": "NOT_CHECKED", "12:00-2:00": "OK", "2:00-4:00": "OK", "4:00-6:00": "OK" }
+      }
+    ];
+
+    function renderTable(data) {
+      const tbody = document.getElementById("statusTable");
+      tbody.innerHTML = "";
+
+      data.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="border p-2 text-left font-semibold">${row.name}</td>
+          <td class="border p-2">${statusIcons[row.slots["8:00-10:00"]] || statusIcons.NOT_CHECKED}</td>
+          <td class="border p-2">${statusIcons[row.slots["10:00-12:00"]] || statusIcons.NOT_CHECKED}</td>
+          <td class="border p-2">${statusIcons[row.slots["12:00-2:00"]] || statusIcons.NOT_CHECKED}</td>
+          <td class="border p-2">${statusIcons[row.slots["2:00-4:00"]] || statusIcons.NOT_CHECKED}</td>
+          <td class="border p-2">${statusIcons[row.slots["4:00-6:00"]] || statusIcons.NOT_CHECKED}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Load sample data for now
+    renderTable(sampleData);
+  </script>
+</body>
+</html>
