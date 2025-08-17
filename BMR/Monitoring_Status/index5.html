@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Time Check Monitoring Status</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Tooltip style */
+    .tooltip {
+      position: relative;
+      cursor: pointer;
+    }
+    .tooltip .tooltip-text {
+      visibility: hidden;
+      width: max-content;
+      background-color: #333;
+      color: #fff;
+      text-align: left;
+      padding: 4px 8px;
+      border-radius: 4px;
+      position: absolute;
+      z-index: 10;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+    .tooltip:hover .tooltip-text {
+      visibility: visible;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 p-6">
+  <div class="max-w-full overflow-x-auto bg-white p-4 shadow-lg rounded-lg">
+    <h1 class="text-2xl font-bold mb-4">Time Check Monitoring Status</h1>
+
+    <table class="min-w-full border border-gray-300 text-center">
+      <thead class="bg-gray-200">
+        <tr>
+          <th class="border p-2 text-left">Name</th>
+          <th class="border p-2">8:00-10:00</th>
+          <th class="border p-2">10:00-12:00</th>
+          <th class="border p-2">12:00-2:00</th>
+          <th class="border p-2">2:00-4:00</th>
+          <th class="border p-2">4:00-6:00</th>
+          <th class="border p-2">6:00-8:00</th>
+        </tr>
+      </thead>
+      <tbody id="statusTable">
+        <!-- Data rows injected here -->
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    const statusIcons = {
+      OK: '<span class="text-green-500 text-xl">✔</span>',
+      NG: '<span class="text-red-500 text-xl">✘</span>',
+      MISSED: '<span class="text-yellow-500 text-xl">⚠</span>',
+      NOT_CHECKED: '<span class="text-gray-400 text-xl">●</span>'
+    };
+
+    // Updated slots for 8 AM - 8 PM
+    const timeSlots = [
+      "8:00-10:00",
+      "10:00-12:00",
+      "12:00-2:00",
+      "2:00-4:00",
+      "4:00-6:00",
+      "6:00-8:00"
+    ];
+
+    // Map API time_range to our keys
+    const slotMap = {
+      "8:00 AM - 10:00 AM": "8:00-10:00",
+      "10:00 AM - 12:00 PM": "10:00-12:00",
+      "12:00 PM - 2:00 PM": "12:00-2:00",
+      "2:00 PM - 4:00 PM": "2:00-4:00",
+      "4:00 PM - 6:00 PM": "4:00-6:00",
+      "6:00 PM - 8:00 PM": "6:00-8:00"
+    };
+
+    function transformData(apiData) {
+      const grouped = {};
+
+      apiData.forEach(item => {
+        const name = `${item.section} - ${item.checkpoint}`;
+        if (!grouped[name]) {
+          grouped[name] = { name, slots: {} };
+          timeSlots.forEach(slot => grouped[name].slots[slot] = {
+            status: "NOT_CHECKED",
+            measured_value: "",
+            remarks: ""
+          });
+        }
+
+        const slotLabel = slotMap[item.time_range] || null;
+        if (slotLabel) {
+          grouped[name].slots[slotLabel] = {
+            status: item.result || "NOT_CHECKED",
+            measured_value: item.measured_value || "",
+            remarks: item.remarks || ""
+          };
+        }
+      });
+
+      return Object.values(grouped);
+    }
+
+    function renderTable(data) {
+      const tbody = document.getElementById("statusTable");
+      tbody.innerHTML = "";
+
+      data.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="border p-2 text-left font-semibold">${row.name}</td>
+          ${timeSlots.map(slot => {
+            const cell = row.slots[slot];
+            return `
+              <td class="border p-2">
+                <div class="tooltip">
+                  ${statusIcons[cell.status] || statusIcons.NOT_CHECKED}
+                  ${cell.measured_value || cell.remarks ? `
+                    <span class="tooltip-text">
+                      Value: ${cell.measured_value || "N/A"}<br>
+                      Remarks: ${cell.remarks || "N/A"}
+                    </span>
+                  ` : ""}
+                </div>
+              </td>
+            `;
+          }).join("")}
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function loadData() {
+      try {
+        const response = await fetch("http://localhost:1880/time-check-report");
+        if (!response.ok) throw new Error("Network response was not ok");
+
+        const apiData = await response.json();
+        const transformed = transformData(apiData);
+        renderTable(transformed);
+
+      } catch (error) {
+        console.error("Error fetching time check data:", error);
+        document.getElementById("statusTable").innerHTML = `
+          <tr><td colspan="7" class="p-4 text-red-500">Error loading data</td></tr>
+        `;
+      }
+    }
+
+    loadData();
+    // Optional auto-refresh
+    // setInterval(loadData, 60000);
+  </script>
+</body>
+</html>
