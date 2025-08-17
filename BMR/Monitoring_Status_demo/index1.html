@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Time Slot Data Management (Dummy)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  </head>
+  <body class="bg-gray-100 min-h-screen p-6">
+    <div class="max-w-7xl mx-auto bg-white shadow-lg rounded-xl p-6">
+      <h1 class="text-2xl font-bold mb-4">Time Slot Data Management</h1>
+
+      <!-- Search Bar -->
+      <div class="mb-4 flex flex-col md:flex-row gap-3">
+        <input
+          id="searchInput"
+          type="text"
+          placeholder="Search in table..."
+          class="border rounded-lg p-2 flex-1"
+          onkeyup="searchTable()"
+        />
+
+        <input type="date" id="fromDate" class="border rounded-lg p-2" />
+        <input type="date" id="toDate" class="border rounded-lg p-2" />
+        <button
+          onclick="exportFilteredExcel()"
+          class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+        >
+          Export Excel
+        </button>
+      </div>
+
+      <!-- Table -->
+      <div class="overflow-x-auto">
+        <table
+          class="min-w-full border border-gray-300 rounded-lg overflow-hidden"
+        >
+          <thead class="bg-gray-200">
+            <tr>
+              <th class="border p-2">Date</th>
+              <th class="border p-2">Section</th>
+              <th class="border p-2">Check Point</th>
+              <th class="border p-2">Mold</th>
+              <th class="border p-2">Spec / Method</th>
+              <th class="border p-2">Measuring Tool</th>
+              <th class="border p-2">Time Range</th>
+              <th class="border p-2">Measured Value</th>
+              <th class="border p-2">Result</th>
+              <th class="border p-2">Remarks</th>
+              <th class="border p-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="dataTable">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div
+      id="editModal"
+      class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+    >
+      <div
+        class="bg-white rounded-lg max-w-lg w-full shadow-lg max-h-[90vh] overflow-y-auto"
+      >
+        <div class="p-6">
+          <h2 class="text-xl font-bold mb-4">Edit Row</h2>
+          <form id="editForm" class="space-y-3">
+            <input type="hidden" id="editId" />
+
+            <div>
+              <label class="block font-semibold">Date</label>
+              <input
+                type="date"
+                id="editDate"
+                class="border rounded p-2 w-full"
+              />
+            </div>
+
+            <div>
+              <label class="block font-semibold">Time Range</label>
+              <input
+                type="text"
+                id="editTimeRange"
+                class="border rounded p-2 w-full"
+              />
+            </div>
+
+            <div>
+              <label class="block font-semibold">Measured Value</label>
+              <input
+                type="text"
+                id="editMeasuredValue"
+                class="border rounded p-2 w-full"
+              />
+            </div>
+
+            <div>
+              <label class="block font-semibold">Result</label>
+              <select id="editResult" class="border rounded p-2 w-full">
+                <option value="OK">OK</option>
+                <option value="NG">NG</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block font-semibold">Remarks</label>
+              <input
+                type="text"
+                id="editRemarks"
+                class="border rounded p-2 w-full"
+              />
+            </div>
+
+            <div>
+              <label class="block font-semibold">Section</label>
+              <input
+                type="text"
+                id="editSection"
+                class="border rounded p-2 w-full"
+              />
+            </div>
+
+            <div>
+              <label class="block font-semibold">Checkpoint</label>
+              <input
+                type="text"
+                id="editCheckpoint"
+                class="border rounded p-2 w-full"
+              />
+            </div>
+
+            <div>
+              <label class="block font-semibold">Mold</label>
+              <input
+                type="text"
+                id="editMold"
+                class="border rounded p-2 w-full"
+              />
+            </div>
+
+            <div>
+              <label class="block font-semibold">Spec</label>
+              <input
+                type="text"
+                id="editSpec"
+                class="border rounded p-2 w-full"
+              />
+            </div>
+
+            <div>
+              <label class="block font-semibold">Tool</label>
+              <input
+                type="text"
+                id="editTool"
+                class="border rounded p-2 w-full"
+              />
+            </div>
+
+            <div class="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                onclick="closeModal()"
+                class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+              >
+                Save
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Dummy dataset
+      let dummyData = [
+        {
+          id: 1,
+          created_at: "2025-08-16T08:15:00Z",
+          section: "Section A",
+          checkpoint: "CP1",
+          mold: "Mold 1",
+          spec: "Spec A",
+          tool: "Micrometer",
+          time_range: "10:00 AM - 12:00 PM",
+          measured_value: "12.5",
+          result: "OK",
+          remarks: "Good",
+        },
+        {
+          id: 2,
+          created_at: "2025-08-16T10:20:00Z",
+          section: "Section B",
+          checkpoint: "CP2",
+          mold: "Mold 2",
+          spec: "Spec B",
+          tool: "Vernier",
+          time_range: "12:00 PM - 2:00 PM",
+          measured_value: "9.8",
+          result: "NG",
+          remarks: "Out of range",
+        },
+      ];
+
+      window.onload = () => renderTable(dummyData);
+
+      function formatDate(dateString) {
+        if (!dateString) return "";
+        const d = new Date(dateString);
+        return d.toISOString().split("T")[0]; // YYYY-MM-DD
+      }
+
+      function renderTable(data) {
+        const tbody = document.getElementById("dataTable");
+        tbody.innerHTML = "";
+
+        data.forEach((item) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td class="border p-2">${formatDate(item.created_at)}</td>
+            <td class="border p-2">${item.section}</td>
+            <td class="border p-2">${item.checkpoint}</td>
+            <td class="border p-2">${item.mold}</td>
+            <td class="border p-2">${item.spec}</td>
+            <td class="border p-2">${item.tool}</td>
+            <td class="border p-2">${item.time_range}</td>
+            <td class="border p-2">${item.measured_value}</td>
+            <td class="border p-2">${item.result}</td>
+            <td class="border p-2">${item.remarks}</td>
+            <td class="border p-2 text-center flex gap-2 justify-center">
+              <button onclick='openEditModal(${JSON.stringify(
+                item
+              )})' class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">Edit</button>
+              <button onclick='deleteRow(${
+                item.id
+              })' class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded">Delete</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      function searchTable() {
+        const filter = document
+          .getElementById("searchInput")
+          .value.toLowerCase();
+        const rows = document.querySelectorAll("#dataTable tr");
+        rows.forEach((row) => {
+          const text = row.textContent.toLowerCase();
+          row.style.display = text.includes(filter) ? "" : "none";
+        });
+      }
+
+      function openEditModal(item) {
+        document.getElementById("editId").value = item.id;
+        document.getElementById("editDate").value = formatDate(item.created_at);
+        document.getElementById("editTimeRange").value = item.time_range;
+        document.getElementById("editMeasuredValue").value =
+          item.measured_value;
+        document.getElementById("editResult").value = item.result;
+        document.getElementById("editRemarks").value = item.remarks;
+        document.getElementById("editSection").value = item.section;
+        document.getElementById("editCheckpoint").value = item.checkpoint;
+        document.getElementById("editMold").value = item.mold;
+        document.getElementById("editSpec").value = item.spec;
+        document.getElementById("editTool").value = item.tool;
+
+        document.getElementById("editModal").classList.remove("hidden");
+      }
+
+      function closeModal() {
+        document.getElementById("editModal").classList.add("hidden");
+      }
+
+      document
+        .getElementById("editForm")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          const id = parseInt(document.getElementById("editId").value);
+
+          // Update dummy data
+          dummyData = dummyData.map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  created_at: new Date(
+                    document.getElementById("editDate").value
+                  ).toISOString(),
+                  time_range: document.getElementById("editTimeRange").value,
+                  measured_value:
+                    document.getElementById("editMeasuredValue").value,
+                  result: document.getElementById("editResult").value,
+                  remarks: document.getElementById("editRemarks").value,
+                  section: document.getElementById("editSection").value,
+                  checkpoint: document.getElementById("editCheckpoint").value,
+                  mold: document.getElementById("editMold").value,
+                  spec: document.getElementById("editSpec").value,
+                  tool: document.getElementById("editTool").value,
+                }
+              : item
+          );
+
+          closeModal();
+          renderTable(dummyData);
+        });
+
+      function deleteRow(id) {
+        if (!confirm("Are you sure you want to delete this row?")) return;
+        dummyData = dummyData.filter((item) => item.id !== id);
+        renderTable(dummyData);
+      }
+
+      //export Filter ----- to - Excel
+      function exportFilteredExcel() {
+        let fromDate = document.getElementById("fromDate").value;
+        let toDate = document.getElementById("toDate").value;
+
+        if (!fromDate || !toDate) {
+          alert("Please select both From and To dates!");
+          return;
+        }
+
+        const from = new Date(fromDate);
+        const to = new Date(toDate);
+
+        // Filter dummyData
+        let filtered = dummyData.filter((item) => {
+          const rowDate = new Date(item.created_at);
+          return rowDate >= from && rowDate <= to;
+        });
+
+        if (filtered.length === 0) {
+          alert("No data found in the selected range!");
+          return;
+        }
+
+        // Convert to Excel data
+        let excelData = [
+          [
+            "Date",
+            "Section",
+            "Check Point",
+            "Mold",
+            "Spec / Method",
+            "Measuring Tool",
+            "Time Range",
+            "Measured Value",
+            "Result",
+            "Remarks",
+          ],
+          ...filtered.map((item) => [
+            formatDate(item.created_at),
+            item.section,
+            item.checkpoint,
+            item.mold,
+            item.spec,
+            item.tool,
+            item.time_range,
+            item.measured_value,
+            item.result,
+            item.remarks,
+          ]),
+        ];
+
+        let wb = XLSX.utils.book_new();
+        let ws = XLSX.utils.aoa_to_sheet(excelData);
+        XLSX.utils.book_append_sheet(wb, ws, "FilteredData");
+        XLSX.writeFile(wb, "FilteredData.xlsx");
+      }
+    </script>
+     
+  </body>
+</html>
