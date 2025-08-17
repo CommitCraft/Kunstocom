@@ -16,7 +16,7 @@
       opacity: 0;
       transition: opacity 0.2s ease-in-out;
       width: max-content;
-      background-color: #333;
+      background-color: #1f2937; /* dark gray */
       color: #fff;
       text-align: left;
       padding: 4px 8px;
@@ -28,6 +28,7 @@
       transform: translateX(-50%);
       font-size: 0.75rem;
       white-space: nowrap;
+      box-shadow: 0px 2px 6px rgba(0,0,0,0.4);
     }
     .tooltip:hover .tooltip-text,
     .tooltip.active .tooltip-text {
@@ -36,43 +37,43 @@
     }
   </style>
 </head>
-<body class="bg-gray-100 p-6">
-  <div class="max-w-full overflow-x-auto bg-white p-4 shadow-lg rounded-lg">
-    <h1 class="text-2xl font-bold mb-4">Time Check Monitoring Status</h1>
+<body class="bg-gray-900 text-gray-100 p-6">
+  <div class="max-w-full overflow-x-auto bg-gray-800 p-4 shadow-lg rounded-lg">
+    <h1 class="text-2xl font-bold mb-4 text-white">Time Check Monitoring Status</h1>
 
     <!-- Loading Spinner -->
     <div id="loading" class="flex items-center justify-center py-6">
-      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-800"></div>
+      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-300"></div>
     </div>
 
-    <table class="min-w-full border border-gray-300 text-center hidden" id="statusTableWrapper">
-      <thead class="bg-gray-200">
+    <table class="min-w-full border border-gray-600 text-center hidden" id="statusTableWrapper">
+      <thead class="bg-gray-700 text-gray-200">
         <tr>
-          <th class="border p-2 text-left">Name</th>
-          <th class="border p-2">8:00-10:00</th>
-          <th class="border p-2">10:00-12:00</th>
-          <th class="border p-2">12:00-2:00</th>
-          <th class="border p-2">2:00-4:00</th>
-          <th class="border p-2">4:00-6:00</th>
-          <th class="border p-2">6:00-8:00</th>
+          <th class="border border-gray-600 p-2 text-left">Name</th>
+          <th class="border border-gray-600 p-2">8:00-10:00</th>
+          <th class="border border-gray-600 p-2">10:00-12:00</th>
+          <th class="border border-gray-600 p-2">12:00-2:00</th>
+          <th class="border border-gray-600 p-2">2:00-4:00</th>
+          <th class="border border-gray-600 p-2">4:00-6:00</th>
+          <th class="border border-gray-600 p-2">6:00-8:00</th>
         </tr>
       </thead>
-      <tbody id="statusTable"></tbody>
+      <tbody id="statusTable" class="text-gray-100"></tbody>
     </table>
 
     <!-- Error Message -->
     <div id="errorBox" class="hidden text-center py-6">
-      <p class="text-red-500 mb-3">⚠ Error loading data</p>
-      <button onclick="loadData()" class="px-4 py-2 bg-blue-600 text-white rounded-md">Retry</button>
+      <p class="text-red-400 mb-3">⚠ Error loading data</p>
+      <button onclick="loadData()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">Retry</button>
     </div>
   </div>
 
   <script>
     const statusIcons = {
-      OK: '<span class="text-green-500 text-xl">✔</span>',
-      NG: '<span class="text-red-500 text-xl">✘</span>',
-      MISSED: '<span class="text-yellow-500 text-xl">⚠</span>',
-      NOT_CHECKED: '<span class="text-gray-400 text-xl">●</span>'
+      OK: '<span class="text-green-400 text-xl">✔</span>',
+      NG: '<span class="text-red-400 text-xl">✘</span>',
+      MISSED: '<span class="text-yellow-400 text-xl">⚠</span>',
+      NOT_CHECKED: '<span class="text-gray-500 text-xl">●</span>'
     };
 
     const timeSlots = [
@@ -93,7 +94,6 @@
       "6:00 PM - 8:00 PM": "6:00-8:00"
     };
 
-    // Escape HTML to avoid injection in tooltips
     function escapeHTML(str) {
       return str.replace(/[&<>"']/g, function (m) {
         return ({
@@ -106,56 +106,57 @@
       });
     }
 
-    
     function transformData(apiData) {
-      const grouped = {};
-      apiData.forEach(item => {
-        const name = `${item.section} - ${item.checkpoint}`;
-        if (!grouped[name]) {
-          grouped[name] = { name, slots: {} };
-          timeSlots.forEach(slot => grouped[name].slots[slot] = {
-            status: "NOT_CHECKED",
-            measured_value: "",
-            remarks: ""
-          });
-        }
+  const grouped = {};
+  const now = new Date();
 
-        const slotLabel = slotMap[item.time_range] || null;
-        if (slotLabel) {
-          grouped[name].slots[slotLabel] = {
-            status: item.result || "NOT_CHECKED",
-            measured_value: item.measured_value || "",
-            remarks: item.remarks || ""
-          };
-        }
+  apiData.forEach(item => {
+    const name = `${item.section} - ${item.checkpoint}`;
+    if (!grouped[name]) {
+      grouped[name] = { name, slots: {} };
+      timeSlots.forEach(slot => grouped[name].slots[slot] = {
+        status: "NOT_CHECKED",
+        measured_value: "",
+        remarks: ""
       });
-      return Object.values(grouped);
     }
+    const slotLabel = slotMap[item.time_range] || null;
+    if (slotLabel) {
+      grouped[name].slots[slotLabel] = {
+        status: item.result || "NOT_CHECKED",
+        measured_value: item.measured_value || "",
+        remarks: item.remarks || ""
+      };
+    }
+  });
+
+  return Object.values(grouped);
+}
+
 
     function renderTable(data) {
       const tbody = document.getElementById("statusTable");
       tbody.innerHTML = "";
 
       data.forEach(row => {
-        // check row-level highlights
         const hasNG = Object.values(row.slots).some(s => s.status === "NG");
         const hasMissed = Object.values(row.slots).some(s => s.status === "MISSED");
 
         let rowClass = "";
-        if (hasNG) rowClass = "bg-red-100";        // NG → red
-        else if (hasMissed) rowClass = "bg-yellow-100"; // MISSED → yellow
+        if (hasNG) rowClass = "bg-red-900/40";     
+        else if (hasMissed) rowClass = "bg-yellow-900/30"; 
 
         const tr = document.createElement("tr");
         tr.className = rowClass;
 
         tr.innerHTML = `
-          <td class="border p-2 text-left font-semibold">${escapeHTML(row.name)}</td>
+          <td class="border border-gray-600 p-2 text-left font-semibold">${escapeHTML(row.name)}</td>
           ${timeSlots.map(slot => {
             const cell = row.slots[slot];
             const value = escapeHTML(cell.measured_value || "N/A");
             const remarks = escapeHTML(cell.remarks || "N/A");
             return `
-              <td class="border p-2">
+              <td class="border border-gray-600 p-2">
                 <div class="tooltip" onclick="this.classList.toggle('active')">
                   ${statusIcons[cell.status] || statusIcons.NOT_CHECKED}
                   ${(cell.measured_value || cell.remarks) ? `
@@ -188,7 +189,6 @@
 
         document.getElementById("loading").classList.add("hidden");
         document.getElementById("statusTableWrapper").classList.remove("hidden");
-
       } catch (error) {
         console.error("Error fetching time check data:", error);
         document.getElementById("loading").classList.add("hidden");
@@ -197,8 +197,6 @@
     }
 
     loadData();
-    // Auto-refresh every 1 min
-    // setInterval(loadData, 60000);
   </script>
 </body>
 </html>
