@@ -21,179 +21,261 @@
 </head>
 <body class="bg-gray-900 text-white p-6">
 
-    <h2 class="text-2xl font-bold mb-4 border-b border-gray-600 pb-2">Manage Roles & Assign Pages</h2>
+  <h2 class="text-2xl font-bold mb-4 border-b border-gray-600 pb-2">Manage Roles & Assign Pages</h2>
 
-    <!-- Add/Edit Role Form -->
-    <form id="add-role-form" class="space-y-4 mb-6">
-      <input type="hidden" id="roleId" />
-      <div>
-        <label class="block font-semibold mb-1">Role Name</label>
-        <input id="roleName" placeholder="Enter role name"
-          class="w-full px-4 py-2 border border-gray-600 rounded bg-gray-700 text-white focus:outline-none focus:ring focus:ring-green-400" />
-      </div>
-      <div>
-        <label class="block font-semibold mb-1">Assign Pages</label>
-        <select id="pageSelect" multiple
-          class="w-full h-32 border border-gray-600 rounded bg-gray-700 text-white px-3 py-2 focus:outline-none focus:ring focus:ring-green-400"></select>
-      </div>
-      <div class="flex gap-2">
-        <button class="bg-white text-gray-900 px-4 py-2 rounded hover:bg-gray-200 font-semibold">Save Role</button>
-        <button type="button" onclick="resetForm()" class="text-gray-400 hover:underline">Cancel</button>
-      </div>
-    </form>
+  <!-- Add/Edit Role Form -->
+  <form id="add-role-form" class="space-y-4 mb-6">
+    <input type="hidden" id="roleId" />
+    <div>
+      <label class="block font-semibold mb-1">Role Name</label>
+      <input id="roleName" placeholder="Enter role name"
+        class="w-full px-4 py-2 border border-gray-600 rounded bg-gray-700 text-white focus:outline-none focus:ring focus:ring-green-400" />
+    </div>
 
-    <!-- Role List -->
-    <ul id="roleList" class="space-y-3"></ul>
-  
+    <div>
+      <label class="block font-semibold mb-2">Assign Pages</label>
+
+      <!-- Checkbox grid -->
+      <div id="pageCheckboxes" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2"></div>
+
+      <!-- (optional) quick actions -->
+      <div class="mt-2 flex gap-3 text-sm">
+        <button type="button" id="selectAll" class="text-green-300 hover:underline">Select all</button>
+        <button type="button" id="clearAll" class="text-red-300 hover:underline">Clear all</button>
+      </div>
+    </div>
+
+    <div class="flex gap-2">
+      <button class="bg-white text-gray-900 px-4 py-2 rounded hover:bg-gray-200 font-semibold">Save Role</button>
+      <button type="button" id="cancelBtn" class="text-gray-400 hover:underline">Cancel</button>
+    </div>
+  </form>
+
+  <!-- Role List -->
+  <ul id="roleList" class="space-y-3"></ul>
 
   <script>
     const API_BASE = 'http://127.0.0.1:1880/api';
+    let ALL_PAGES = []; // cache pages to (re)render checkboxes & for edit preselect
 
+    // ---------- helpers ----------
+    function renderPageCheckboxes(pages) {
+      const wrap = document.getElementById('pageCheckboxes');
+      wrap.innerHTML = '';
+      pages.forEach(p => {
+        const id = p.id ?? p.page_id;
+        const name = p.name ?? p.page_name;
+
+        const checkboxId = `page-${id}`;
+        const label = document.createElement('label');
+        label.setAttribute('for', checkboxId);
+        label.className = 'flex items-center gap-3 p-2 rounded border border-gray-700 bg-gray-800 hover:bg-gray-750';
+
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.id = checkboxId;
+        input.name = 'pageIds[]';
+        input.value = id;
+        input.className = 'h-4 w-4 rounded border-gray-500 text-primary focus:ring-green-400';
+
+        const span = document.createElement('span');
+        span.textContent = name;
+
+        label.appendChild(input);
+        label.appendChild(span);
+        wrap.appendChild(label);
+      });
+    }
+
+    function getSelectedPageIds() {
+      return Array.from(document.querySelectorAll('input[name="pageIds[]"]:checked'))
+        .map(cb => parseInt(cb.value, 10));
+    }
+
+    function setSelectedPageIds(ids) {
+      const want = new Set(ids.map(v => String(v)));
+      document.querySelectorAll('input[name="pageIds[]"]').forEach(cb => {
+        cb.checked = want.has(cb.value);
+      });
+    }
+
+    function clearSelectedPageIds() {
+      document.querySelectorAll('input[name="pageIds[]"]').forEach(cb => cb.checked = false);
+    }
+
+    function resetForm() {
+      document.getElementById('roleId').value = '';
+      document.getElementById('roleName').value = '';
+      clearSelectedPageIds();
+    }
+
+    document.getElementById('cancelBtn').addEventListener('click', resetForm);
+
+    document.getElementById('selectAll').addEventListener('click', () => {
+      document.querySelectorAll('input[name="pageIds[]"]').forEach(cb => cb.checked = true);
+    });
+    document.getElementById('clearAll').addEventListener('click', clearSelectedPageIds);
+
+    // ---------- save (create/update) ----------
     document.getElementById('add-role-form').addEventListener('submit', async (e) => {
       e.preventDefault();
 
       const id = document.getElementById('roleId').value;
       const name = document.getElementById('roleName').value.trim();
-      const pageIds = Array.from(document.getElementById('pageSelect').selectedOptions).map(opt => parseInt(opt.value));
+      const pageIds = getSelectedPageIds();
 
-      if (!name || pageIds.length === 0) return alert("Role name and at least one page required.");
+      if (!name || pageIds.length === 0) {
+        alert("Role name and at least one page required.");
+        return;
+      }
 
       const method = id ? 'PUT' : 'POST';
       const url = id ? `${API_BASE}/roles/${id}` : `${API_BASE}/roles`;
 
-      await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, pageIds })
-      });
-
-      resetForm();
-      loadRoles();
+      try {
+        const resp = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, pageIds })
+        });
+        if (!resp.ok) {
+          const msg = await resp.text();
+          throw new Error(msg || 'Failed to save role');
+        }
+        resetForm();
+        await loadRoles();
+      } catch (err) {
+        console.error(err);
+        alert('Error: ' + err.message);
+      }
     });
 
-    function resetForm() {
-      document.getElementById('roleId').value = '';
-      document.getElementById('roleName').value = '';
-      document.getElementById('pageSelect').selectedIndex = -1;
-    }
-
+    // ---------- load pages ----------
     async function loadPages() {
-      const res = await fetch(`${API_BASE}/pages`);
-      const pages = await res.json();
-      const select = document.getElementById('pageSelect');
-      select.innerHTML = '';
-      pages.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.id;
-        opt.textContent = p.name;
-        select.appendChild(opt);
-      });
+      try {
+        const res = await fetch(`${API_BASE}/pages`);
+        if (!res.ok) throw new Error('Failed to load pages');
+        const pages = await res.json();
+        ALL_PAGES = pages;
+        renderPageCheckboxes(ALL_PAGES);
+      } catch (err) {
+        console.error(err);
+        alert('Error loading pages');
+      }
     }
 
+    // ---------- load + render roles ----------
     async function loadRoles() {
-  const res = await fetch(`${API_BASE}/roles`);
-  const roles = await res.json();
+      try {
+        const res = await fetch(`${API_BASE}/roles`);
+        if (!res.ok) throw new Error('Failed to load roles');
+        const roles = await res.json();
+        renderRoleList(roles);
+      } catch (err) {
+        console.error(err);
+        alert('Error loading roles');
+      }
+    }
 
-  const list = document.getElementById('roleList');
-  list.innerHTML = '';
+    function renderRoleList(roles) {
+      const list = document.getElementById('roleList');
+      list.innerHTML = '';
 
-  roles.forEach(role => {
-    const li = document.createElement('li');
-    li.className = 'bg-gray-700 p-4 rounded shadow flex justify-between items-start';
+      roles.forEach((role) => {
+        // role: { role_id, role_name, pages: [{page_id, page_name}] }
+        const li = document.createElement('li');
+        li.className = 'bg-gray-700 p-4 rounded shadow flex justify-between items-start';
 
-    li.innerHTML = `
-      <div>
-        <div class="font-semibold text-lg">${role.role_name}</div>
-        <div class="text-sm text-gray-300 mt-1">
-          Pages: ${
-            role.pages && role.pages.length
-              ? role.pages.map(p => `<span class="bg-green-800 text-white px-2 py-1 rounded mr-1">${p.page_name}</span>`).join('')
-              : '—'
-          }
-        </div>
-      </div>
-      <div class="flex flex-col gap-1">
-        <button onclick='editRole(${JSON.stringify(role)})' class="text-blue-400 hover:underline">Edit</button>
-        <button onclick="deleteRole(${role.role_id})" class="text-red-400 hover:underline">Delete</button>
-      </div>
-    `;
-    list.appendChild(li);
-  });
-}
+        const left = document.createElement('div');
+        const title = document.createElement('div');
+        title.className = 'font-semibold text-lg';
+        title.textContent = role.role_name;
 
-function editRole(role) {
-  document.getElementById('roleId').value = role.role_id;
-  document.getElementById('roleName').value = role.role_name;
+        const sub = document.createElement('div');
+        sub.className = 'text-sm text-gray-300 mt-1';
+        sub.append('Pages: ');
 
-  const select = document.getElementById('pageSelect');
-  Array.from(select.options).forEach(option => {
-    option.selected = role.pages.some(p => p.page_id == option.value);
-  });
-}
+        if (role.pages && role.pages.length) {
+          role.pages.forEach(p => {
+            const chip = document.createElement('span');
+            chip.className = 'bg-green-800 text-white px-2 py-1 rounded mr-1 inline-block mb-1';
+            chip.textContent = p.page_name;
+            sub.appendChild(chip);
+          });
+        } else {
+          sub.append('—');
+        }
 
-    // async function loadRoles() {
-    //   const res = await fetch(`${API_BASE}/roles`);
-    //   const rawData = await res.json();
-    //   const roleMap = {};
+        left.appendChild(title);
+        left.appendChild(sub);
 
-    //   rawData.forEach(({ role_id, role_name, page_id, page_name }) => {
-    //     if (!roleMap[role_id]) {
-    //       roleMap[role_id] = {
-    //         id: role_id,
-    //         name: role_name,
-    //         pages: []
-    //       };
-    //     }
-    //     if (page_id && page_name) {
-    //       roleMap[role_id].pages.push({ id: page_id, name: page_name });
-    //     }
-    //   });
+        const right = document.createElement('div');
+        right.className = 'flex flex-col gap-1';
 
-    //   const roles = Object.values(roleMap);
-    //   const list = document.getElementById('roleList');
-    //   list.innerHTML = '';
+        const editBtn = document.createElement('button');
+        editBtn.className = 'text-blue-400 hover:underline';
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', () => editRole(role));
 
-    //   roles.forEach(role => {
-    //     const li = document.createElement('li');
-    //     li.className = 'bg-gray-700 p-4 rounded shadow flex justify-between items-start';
-    //     li.innerHTML = `
-    //       <div>
-    //         <div class="font-semibold text-lg">${role.name}</div>
-    //         <div class="text-sm text-gray-300 mt-1">
-    //           Pages: ${
-    //             role.pages.length
-    //               ? role.pages.map(p => `<span class="bg-green-800 text-white px-2 py-1 rounded mr-1">${p.page_name}</span>`).join('')
-    //               : '—'
-    //           }
-    //         </div>
-    //       </div>
-    //       <div class="flex flex-col gap-1">
-    //         <button onclick='editRole(${JSON.stringify(role)})' class="text-blue-400 hover:underline">Edit</button>
-    //         <button onclick="deleteRole(${role.id})" class="text-red-400 hover:underline">Delete</button>
-    //       </div>
-    //     `;
-    //     list.appendChild(li);
-    //   });
-    // }
+        const delBtn = document.createElement('button');
+        delBtn.className = 'text-red-400 hover:underline';
+        delBtn.textContent = 'Delete';
+        delBtn.addEventListener('click', () => deleteRole(role.role_id));
 
-    function editRole(role) {
-      document.getElementById('roleId').value = role.id;
-      document.getElementById('roleName').value = role.name;
+        right.appendChild(editBtn);
+        right.appendChild(delBtn);
 
-      const select = document.getElementById('pageSelect');
-      Array.from(select.options).forEach(option => {
-        option.selected = role.pages.some(p => p.id == option.value);
+        li.appendChild(left);
+        li.appendChild(right);
+        list.appendChild(li);
       });
     }
 
+    // ---------- edit ----------
+    function editRole(role) {
+      const roleId = role.role_id;
+      const roleName = role.role_name;
+      const pages = Array.isArray(role.pages) ? role.pages : [];
+
+      document.getElementById('roleId').value = roleId;
+      document.getElementById('roleName').value = roleName;
+
+      // make sure checkboxes exist (if pages loaded)
+      if (!ALL_PAGES.length) {
+        // fallback: reload pages then set selection
+        loadPages().then(() => {
+          const ids = pages.map(p => p.page_id);
+          setSelectedPageIds(ids);
+        });
+      } else {
+        const ids = pages.map(p => p.page_id);
+        setSelectedPageIds(ids);
+      }
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ---------- delete ----------
     async function deleteRole(id) {
       if (!confirm('Delete this role?')) return;
-      await fetch(`${API_BASE}/roles/${id}`, { method: 'DELETE' });
-      loadRoles();
+      try {
+        const res = await fetch(`${API_BASE}/roles/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const msg = await res.text();
+          throw new Error(msg || 'Failed to delete role');
+        }
+        await loadRoles();
+      } catch (err) {
+        console.error(err);
+        alert('Error: ' + err.message);
+      }
     }
 
-    loadPages();
-    loadRoles();
+    // ---------- init ----------
+    (async function init() {
+      await loadPages();
+      await loadRoles();
+    })();
   </script>
 </body>
 </html>

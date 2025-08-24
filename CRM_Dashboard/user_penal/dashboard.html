@@ -2,7 +2,7 @@
 <html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
-  <title>Super Admin Dashboard</title>
+  <title>Saral Tech Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -19,408 +19,279 @@
     };
   </script>
   <script src="https://unpkg.com/lucide@latest"></script>
-  <style>
-  .rotate-180 { transform: rotate(180deg); }
-</style>
-
+  <style>.rotate-180{transform:rotate(180deg);}</style>
 </head>
 
 <body class="bg-black text-white min-h-screen">
-
-  <!-- Header -->
   <header class="bg-gray-800 text-white p-4 shadow">
     <h1 class="text-2xl font-bold text-green-600">Saral Technologies Dashboard</h1>
   </header>
 
-  <!-- Layout -->
   <div class="flex h-[calc(100vh-64px)]">
-    
     <!-- Sidebar -->
     <aside id="sidebar" class="w-64 transition-all duration-300 bg-sidebar p-4 space-y-4 flex flex-col justify-between">
-
       <div>
-        <!-- User Info displayed here -->
-        <div id="userInfo" class="mb-4 px-3 py-2 bg-gray-700 rounded text-sm font-medium select-none">
-          <!-- Username will be inserted here by JS -->
-        </div>
+        <div id="userInfo" class="mb-4 px-3 py-2 bg-gray-700 rounded text-sm font-medium select-none"></div>
 
-        <!-- Menu Label and Toggle -->
         <div class="flex justify-between items-center mb-4">
           <span class="font-semibold text-lg label">Menu</span>
-          <button onclick="toggleSidebar()" class="p-1 rounded hover:bg-gray-700 transition">
+          <button id="toggleBtn" type="button" class="p-1 rounded hover:bg-gray-700 transition">
             <svg id="toggleIcon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
             </svg>
           </button>
         </div>
 
-        <!-- Dynamic Navigation Buttons -->
-        <nav id="sidebarNav" class="space-y-2">
-          <!-- JS will dynamically inject menu buttons here based on role/pages -->
-        </nav>
+        <nav id="sidebarNav" class="space-y-2"></nav>
       </div>
 
-      <!-- Sidebar Bottom: Logout -->
-      <button onclick="logout()" class="flex items-center px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 transition">
+      <button id="logoutBtn" class="flex items-center px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 transition">
         <svg data-lucide="log-out" class="icon w-5 h-5 mr-2"></svg><span class="label">Logout</span>
       </button>
     </aside>
 
-    <!-- Main Content -->
+    <!-- Main -->
     <main class="flex-1 bg-gray-900 p-4 relative">
       <iframe id="moduleFrame" src="" class="w-full h-full rounded border border-gray-700 shadow-inner"></iframe>
-
-      <!-- Toast -->
       <div id="toast" class="hidden absolute bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded shadow-lg border border-gray-600">
         Logged out successfully!
       </div>
     </main>
   </div>
 
+  <!-- Session guard -->
   <script>
-    lucide.createIcons();
+    (function guard(){
+      function getAuth(){ try{return JSON.parse(sessionStorage.getItem("auth"))}catch{return null} }
+      function expired(a){ if(!a) return true; const n=Date.now(); if(a.maxAge && n-a.issuedAt>=a.maxAge) return true; if(a.idleMax && n-a.lastActivity>=a.idleMax) return true; return false; }
+      const a=getAuth();
+      if(!a||expired(a)){ sessionStorage.removeItem("auth"); window.location.replace("index.html"); return; }
+      a.lastActivity=Date.now(); sessionStorage.setItem("auth",JSON.stringify(a));
+      setInterval(()=>{ const b=getAuth(); if(!b||expired(b)){ alert("Session expired. Please login again."); sessionStorage.removeItem("auth"); window.location.replace("index.html"); }},10000);
+      ["mousemove","keydown","click","scroll","touchstart"].forEach(e=>window.addEventListener(e,()=>{const b=getAuth(); if(!b) return; b.lastActivity=Date.now(); sessionStorage.setItem("auth",JSON.stringify(b));},{passive:true}));
+      const CLEAR=["isLoggedIn","user","menu","pages"]; const clr=()=>CLEAR.forEach(k=>localStorage.removeItem(k));
+      window.addEventListener("pagehide",clr); window.addEventListener("beforeunload",clr);
+    })();
+  </script>
 
-    // Check login status
-    if (localStorage.getItem("isLoggedIn") !== "true") {
-      window.location.href = "index.html";
-    } else {
-      // Show username in sidebar
-      const userDataStr = localStorage.getItem("user");
-      if (userDataStr) {
-        const user = JSON.parse(userDataStr);
-        const userInfoDiv = document.getElementById("userInfo");
-        if (userInfoDiv) {
-          userInfoDiv.textContent = `Welcome, ${user.username}`;
-        }
-      }
-      
-      // Render sidebar menus based on role permission pages
-      renderSidebarMenus();
-    }
+  <!-- App -->
+  <script>
+    // Storage helpers (prefer session auth; fallback to legacy localStorage for menu/user)
+    const getAuth=()=>{try{return JSON.parse(sessionStorage.getItem("auth"))}catch{return null}};
+    const getUser=()=>{const a=getAuth(); if(a?.user) return a.user; try{return JSON.parse(localStorage.getItem("user"))}catch{return null}};
+    const getMenu=()=>{const a=getAuth(); if(Array.isArray(a?.menu)) return a.menu; try{return JSON.parse(localStorage.getItem("menu"))||[]}catch{return[]}};
 
-    // Given a page, create button element with icon and label
-    function createMenuItem(page) {
-      const btn = document.createElement('button');
-      btn.className = "nav-link flex items-center w-full px-3 py-2 rounded hover:bg-sidebarHover transition";
+    // UI helpers
+    function setActive(el){ document.querySelectorAll("#sidebarNav .nav-link").forEach(b=>b.classList.remove("bg-sidebarHover")); el.classList.add("bg-sidebarHover"); }
+    function showToast(msg="Done"){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.remove("hidden"); setTimeout(()=>t.classList.add("hidden"),1000); }
 
-      // Map page names to lucide icons (customize as needed)
-      const iconNameMap = {
-        "Dashboard": "shield",
-        "Users": "users",
-        "Roles": "shield",
-        "Menu": "layout-grid",
-        "Pages": "file-text",
-        "Home": "home"
-      };
-      const iconName = iconNameMap[page.name] || "file-text";
-
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      svg.setAttribute("data-lucide", iconName);
-      svg.classList.add("icon", "w-5", "h-5", "mr-2");
-      btn.appendChild(svg);
-
-      const span = document.createElement('span');
-      span.className = "label";
-      span.textContent = `Manage ${page.name}`;
-      btn.appendChild(span);
-
-      btn.onclick = function() {
-        setActive(btn);
-        document.getElementById('moduleFrame').src = page.url;
-      };
-
-      return btn;
-    }
-
-    function renderSidebarMenus() {
-  const menuStr = localStorage.getItem("menu");
-  const sidebarNav = document.getElementById("sidebarNav");
-  if (!sidebarNav || !menuStr) return;
-
-  sidebarNav.innerHTML = '';
-
-  const raw = JSON.parse(menuStr);
-
-  const menus = {};
-
-  // Step 1: Group items by title
-  raw.forEach(item => {
-    const key = item.title;
-
-    if (!menus[key]) {
-      menus[key] = {
-        title: key,
-        children: [],
-        type: item.type === "menu" ? "menu" : "submenu"
-      };
-    }
-
-    if (item.type === "menu") {
-      menus[key].url = item.url;
-      menus[key].name = item.page_name;
-    } else {
-      menus[key].children.push({
-        name: item.page_name,
-        url: item.url
-      });
-    }
-  });
-
-  // Step 2: Convert to sorted array
-  const sortedMenus = Object.values(menus).sort((a, b) => a.title.localeCompare(b.title));
-
-  // Recursive DOM builder
-  function buildTree(items, level = 0) {
-    const container = document.createElement('div');
-    items.forEach(item => {
-      const hasChildren = item.children && item.children.length > 0;
-      const wrapper = document.createElement('div');
-      wrapper.className = `ml-${level * 4} mb-1`;
-
-      const btn = document.createElement('button');
-      btn.className = `nav-link flex items-center justify-between w-full px-3 py-2 rounded hover:bg-sidebarHover transition`;
-
-      const left = document.createElement('div');
-      left.className = 'flex items-center';
-
-      const iconNameMap = {
-        "Dashboard": "layout-dashboard",
-        "User": "users",
-        "Roles": "shield",
-        "Pages": "file-text",
-        "Home": "home",
-        "Resport": "bar-chart"
-      };
-      const iconName = iconNameMap[item.title || item.name] || "file-text";
-
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      svg.setAttribute("data-lucide", iconName);
-      svg.classList.add("icon", "w-5", "h-5", "mr-2");
-      left.appendChild(svg);
-
-      const span = document.createElement('span');
-      span.className = "label";
-      span.textContent = item.title || item.name;
-      left.appendChild(span);
-
-      btn.appendChild(left);
-
-      if (hasChildren) {
-        const arrow = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        arrow.setAttribute("data-lucide", "chevron-down");
-        arrow.classList.add("arrow", "w-4", "h-4", "transition-transform");
-        btn.appendChild(arrow);
-      }
-
-      btn.onclick = () => {
-        setActive(btn);
-        if (item.url) {
-          document.getElementById('moduleFrame').src = item.url;
-        }
-        if (hasChildren) {
-          submenuDiv.classList.toggle("hidden");
-          btn.querySelector(".arrow")?.classList.toggle("rotate-180");
-        }
-      };
-
-      wrapper.appendChild(btn);
-
-      let submenuDiv;
-      if (hasChildren) {
-        submenuDiv = buildTree(item.children, level + 1);
-        submenuDiv.classList.add("ml-4", "hidden");
-        wrapper.appendChild(submenuDiv);
-      }
-
-      container.appendChild(wrapper);
+    // Sidebar toggle
+    document.getElementById("toggleBtn").addEventListener("click",()=>{
+      const s=document.getElementById("sidebar"); const collapsed=s.classList.contains("w-16");
+      s.classList.toggle("w-64"); s.classList.toggle("w-16");
+      document.querySelectorAll(".label").forEach(l=>l.classList.toggle("hidden"));
+      document.querySelectorAll(".icon").forEach(i=>{ i.classList.toggle("mr-2",!collapsed); i.classList.toggle("mx-auto",collapsed); });
+      const ic=document.getElementById("toggleIcon");
+      ic.innerHTML=collapsed?`<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>`:`<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>`;
     });
 
-    return container;
-  }
+    // Logout
+    document.getElementById("logoutBtn").addEventListener("click",()=>{
+      sessionStorage.removeItem("auth");
+      ["isLoggedIn","user","menu","pages"].forEach(k=>localStorage.removeItem(k));
+      showToast("Logged out successfully!"); setTimeout(()=>window.location.replace("index.html"),1200);
+    });
 
-  sidebarNav.appendChild(buildTree(sortedMenus));
-  lucide.createIcons();
+    // Username
+    (function(){ const u=getUser(); document.getElementById("userInfo").textContent=u?.username?`Welcome, ${u.username}`:"Welcome"; })();
 
-  // Auto-load first available URL
-  const first = raw.find(m => m.url);
-  if (first) document.getElementById('moduleFrame').src = first.url;
-}
+    // Icons
+    const ICONS={
+      "Dashboard":"layout-dashboard","User":"users","Users":"users","Roles":"shield","Role":"shield","Menu":"layout-grid",
+      "Pages":"file-text","Page":"file-text","Home":"home","Home 1":"home","Report":"bar-chart-3","Reports":"bar-chart-3","Resport":"bar-chart-3"
+    };
 
+    // Safe getter for multiple key aliases
+    const gv=(o,...keys)=>{for(const k of keys){if(o&&o[k]!==undefined&&o[k]!==null&&o[k]!=="") return o[k];}};
 
+    // ===== Tree Builder (menu → submenu → child) with smart fallbacks =====
+    function renderSidebarMenus(){
+      const raw=getMenu(); // array of { id?, title, type: 'menu'|'submenu'|'child', url?, page_name?, parent_*? }
+      const nav=document.getElementById("sidebarNav"); nav.innerHTML="";
 
-//     function renderSidebarMenus() {
-//   const menuStr = localStorage.getItem("menu");
-//   const sidebarNav = document.getElementById("sidebarNav");
-//   if (!sidebarNav || !menuStr) return;
-
-//   sidebarNav.innerHTML = '';
-
-//   const raw = JSON.parse(menuStr);
-
-//   const menus = {};
-//   const submenus = {};
-//   const childmenus = [];
-
-//   // Categorize menu items
-//   raw.forEach(item => {
-//     if (item.type === "menu") {
-//       menus[item.title] = { title: item.title, children: [] };
-//     } else if (item.type === "submenu") {
-//       if (!submenus[item.parent]) submenus[item.parent] = [];
-//       submenus[item.parent].push({
-//         title: item.title,
-//         name: item.page_name,
-//         url: item.url
-//       });
-//     } else if (item.type === "childmenu") {
-//       childmenus.push(item);
-//     }
-//   });
-
-//   // Attach submenus under menus
-//   Object.keys(submenus).forEach(parent => {
-//     if (menus[parent]) {
-//       menus[parent].children = submenus[parent];
-//     }
-//   });
-
-//   // Attach childmenus under submenus
-//   childmenus.forEach(child => {
-//     for (const menu of Object.values(menus)) {
-//       const targetSub = menu.children?.find(sub => sub.title === child.parent);
-//       if (targetSub) {
-//         if (!targetSub.children) targetSub.children = [];
-//         targetSub.children.push({ name: child.page_name, url: child.url });
-//       }
-//     }
-//   });
-
-//   // Sort alphabetically by menu title
-//   const sortedMenus = Object.values(menus).sort((a, b) => a.title.localeCompare(b.title));
-
-//   // Recursive DOM builder
-//   function buildTree(items, level = 0) {
-//     const container = document.createElement('div');
-//     items.forEach(item => {
-//       const hasChildren = item.children && item.children.length > 0;
-//       const wrapper = document.createElement('div');
-//       wrapper.className = `ml-${level * 4} mb-1`;
-
-//       const btn = document.createElement('button');
-//       btn.className = `nav-link flex items-center justify-between w-full px-3 py-2 rounded hover:bg-sidebarHover transition`;
-
-//       const left = document.createElement('div');
-//       left.className = 'flex items-center';
-
-//       const iconNameMap = {
-//         "Dashboard": "layout-dashboard",
-//         "User": "users",
-//         "Roles": "shield",
-//         "Pages": "file-text",
-//         "Home": "home"
-//       };
-//       const iconName = iconNameMap[item.title || item.name] || "file-text";
-
-//       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-//       svg.setAttribute("data-lucide", iconName);
-//       svg.classList.add("icon", "w-5", "h-5", "mr-2");
-//       left.appendChild(svg);
-
-//       const span = document.createElement('span');
-//       span.className = "label";
-//       span.textContent = item.title || item.name;
-//       left.appendChild(span);
-
-//       btn.appendChild(left);
-
-//       if (hasChildren) {
-//         const arrow = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-//         arrow.setAttribute("data-lucide", "chevron-down");
-//         arrow.classList.add("arrow", "w-4", "h-4", "transition-transform");
-//         btn.appendChild(arrow);
-//       }
-
-//       btn.onclick = () => {
-//         setActive(btn);
-//         if (item.url) {
-//           document.getElementById('moduleFrame').src = item.url;
-//         }
-//         if (hasChildren) {
-//           submenuDiv.classList.toggle("hidden");
-//           btn.querySelector(".arrow")?.classList.toggle("rotate-180");
-//         }
-//       };
-
-//       wrapper.appendChild(btn);
-
-//       let submenuDiv;
-//       if (hasChildren) {
-//         submenuDiv = buildTree(item.children, level + 1);
-//         submenuDiv.classList.add("ml-4", "hidden");
-//         wrapper.appendChild(submenuDiv);
-//       }
-
-//       container.appendChild(wrapper);
-//     });
-
-//     return container;
-//   }
-
-//   sidebarNav.appendChild(buildTree(sortedMenus));
-//   lucide.createIcons();
-
-//   // Auto-load first available URL
-//   const first = raw.find(m => m.url);
-//   if (first) document.getElementById('moduleFrame').src = first.url;
-// }
-
-
-
-  
-
-    function setActive(el) {
-      document.querySelectorAll("#sidebarNav .nav-link").forEach(btn => btn.classList.remove("bg-sidebarHover"));
-      el.classList.add("bg-sidebarHover");
-    }
-
-    function logout() {
-      localStorage.removeItem("isLoggedIn");
-      localStorage.removeItem("user");
-      localStorage.removeItem("pages");
-      showToast();
-      setTimeout(() => {
-        window.location.href = "index.html";
-      }, 1200);
-    }
-
-    function showToast() {
-      const toast = document.getElementById('toast');
-      toast.classList.remove('hidden');
-      setTimeout(() => toast.classList.add('hidden'), 1000);
-    }
-
-    function toggleSidebar() {
-      const sidebar = document.getElementById('sidebar');
-      const isCollapsed = sidebar.classList.contains('w-16');
-
-      sidebar.classList.toggle('w-64');
-      sidebar.classList.toggle('w-16');
-
-      // Toggle label visibility
-      document.querySelectorAll('.label').forEach(label => label.classList.toggle('hidden'));
-
-      // Fix icon alignment
-      document.querySelectorAll('.icon').forEach(icon => {
-        icon.classList.toggle('mr-2', !isCollapsed);
-        icon.classList.toggle('mx-auto', isCollapsed);
+      // Split by type
+      const MEN=[], SUB=[], CH=[];
+      raw.forEach(it=>{
+        const t=String(it.type||"").toLowerCase();
+        if(t==="menu") MEN.push(it);
+        else if(t==="submenu") SUB.push(it);
+        else if(t==="child"||t==="childmenu") CH.push(it);
+        else CH.push(it); // unknown => treat as leaf
       });
 
-      // Flip toggle arrow
-      const toggleIcon = document.getElementById("toggleIcon");
-      toggleIcon.innerHTML = isCollapsed ?
-        `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />` :
-        `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />`;
+      // Index by id and title (flexible)
+      const menuById=new Map(), menuByTitle=new Map();
+      MEN.forEach(m=>{
+        const id=gv(m,"menu_id","id"); const title=m.title||m.page_name||"Menu";
+        const node={title, url:m.url||"", name:m.page_name||title, children:[]};
+        if(id!==undefined) menuById.set(String(id),node);
+        menuByTitle.set(title,node);
+      });
+
+      const subById=new Map(), subByTitle=new Map();
+      // Attach submenus to their menu parent via id/title; if none, they'll be lifted to root
+      SUB.forEach(s=>{
+        const snode={title:s.title||s.page_name||"Submenu", url:s.url||"", name:s.page_name||s.title, children:[]};
+        const sid=gv(s,"submenu_id","id"); if(sid!==undefined) subById.set(String(sid),snode);
+        subByTitle.set(snode.title,snode);
+
+        let attached=false;
+        const pmId=gv(s,"parent_menu_id","menu_id_parent","parentId"); // id-based
+        if(pmId!==undefined){ const m=menuById.get(String(pmId)); if(m){m.children.push(snode); attached=true;} }
+        if(!attached){ // title-based
+          const pmTitle=gv(s,"parent_menu_title","parent_title","parent");
+          if(pmTitle){ const m=menuByTitle.get(String(pmTitle)); if(m){m.children.push(snode); attached=true;} }
+        }
+        if(!attached) snode.__orphan=true; // lift to root later
+      });
+
+      // Attach children to their submenu parent via id/title; else to their menu group title; else lift to root
+      const orphanLeaves=[];
+      CH.forEach(c=>{
+        const leaf={name:c.page_name||c.title||"Item", url:c.url||""};
+        let attached=false;
+
+        const psId=gv(c,"parent_submenu_id","submenu_id_parent","parentId");
+        if(psId!==undefined){ const s=subById.get(String(psId)); if(s){s.children.push(leaf); attached=true;} }
+
+        if(!attached){
+          const psTitle=gv(c,"parent_submenu_title","submenu_title","parent_submenu","parent_title","parent");
+          if(psTitle){ const s=subByTitle.get(String(psTitle)); if(s){s.children.push(leaf); attached=true;} }
+        }
+
+        if(!attached){
+          const groupTitle=c.group || c.menu_title || c.title;
+          if(groupTitle && menuByTitle.get(String(groupTitle))){
+            menuByTitle.get(String(groupTitle)).children.push(leaf); attached=true;
+          }
+        }
+
+        if(!attached) orphanLeaves.push(leaf);
+      });
+
+      // Collect roots
+      let roots=[...menuByTitle.values()];
+      // create groups for titles that had only sub/child entries (no menu root)
+      const titlesFromData=new Set(raw.map(r=>r.title||""));
+      titlesFromData.forEach(t=>{
+        if(!t) return;
+        if(!menuByTitle.has(t)){ menuByTitle.set(t,{title:t,url:"",name:t,children:[]}); roots.push(menuByTitle.get(t)); }
+      });
+
+      // add orphan submenus to their title groups
+      subByTitle.forEach(s=>{
+        if(s.__orphan){
+          const grp=menuByTitle.get(s.title) || menuByTitle.get(gv(s,"parent_menu_title","parent")) || null;
+          if(grp){ grp.children.push(s); } else { roots.push(s); }
+        }
+      });
+
+      // add orphan leaves at root-level under group by their name/title when possible
+      orphanLeaves.forEach(l=>{
+        // try to put under a group matching first word (best-effort), else push to roots
+        const cand=menuByTitle.get(l.name)||null;
+        if(cand) cand.children.push(l); else roots.push(l);
+      });
+
+      // dedupe and sort roots
+      roots = Array.from(new Set(roots)); // dedupe by reference
+      roots.sort((a,b)=>(a.title||a.name||"").localeCompare(b.title||b.name||""));
+
+      // DOM builder (deep)
+      function buildTree(items, level=0){
+        const cont=document.createElement("div");
+        items.forEach(item=>{
+          const hasKids=Array.isArray(item.children)&&item.children.length>0;
+
+          const wrap=document.createElement("div");
+          wrap.className="mb-1"; wrap.style.marginLeft=`${level*16}px`;
+
+          const btn=document.createElement("button");
+          btn.type="button";
+          btn.className="nav-link flex items-center justify-between w-full px-3 py-2 rounded hover:bg-sidebarHover transition";
+
+          const left=document.createElement("div"); left.className="flex items-center";
+
+          const key=(item.title||item.name||"").trim();
+          const icon=ICONS[key]||"file-text";
+
+          const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+          svg.setAttribute("data-lucide",icon); svg.classList.add("icon","w-5","h-5","mr-2");
+          left.appendChild(svg);
+
+          const span=document.createElement("span"); span.className="label"; span.textContent=item.title||item.name;
+          left.appendChild(span);
+
+          btn.appendChild(left);
+
+          if(hasKids){
+            const arrow=document.createElementNS("http://www.w3.org/2000/svg","svg");
+            arrow.setAttribute("data-lucide","chevron-down"); arrow.classList.add("arrow","w-4","h-4","transition-transform");
+            btn.appendChild(arrow);
+          }
+
+          btn.addEventListener("click", ()=>{
+            setActive(btn);
+            if(item.url) document.getElementById("moduleFrame").src=item.url;
+            if(hasKids){ subDiv.classList.toggle("hidden"); btn.querySelector(".arrow")?.classList.toggle("rotate-180"); }
+          });
+
+          wrap.appendChild(btn);
+
+          let subDiv;
+          if(hasKids){
+            subDiv=buildTree(item.children, level+1);
+            subDiv.classList.add("hidden"); // collapsed by default
+            wrap.appendChild(subDiv);
+          }
+
+          cont.appendChild(wrap);
+        });
+        return cont;
+      }
+
+      nav.appendChild(buildTree(roots));
+      lucide.createIcons();
+
+      // Autoload first URL
+      (function autoload(){
+        function firstUrl(items){
+          for(const it of items){
+            if(it.url) return it.url;
+            if(it.children?.length){ const u=firstUrl(it.children); if(u) return u; }
+          }
+          return null;
+        }
+        const u=firstUrl(roots);
+        if(u) document.getElementById("moduleFrame").src=u;
+      })();
     }
+
+    // Boot
+    (function init(){
+      renderSidebarMenus();
+      lucide.createIcons();
+    })();
   </script>
+  <script>
+  // NOT secure, easy to bypass, hurts UX/accessibility
+  document.addEventListener('contextmenu', e => e.preventDefault()); // block right-click
+  document.addEventListener('keydown', e => {
+    const k = e.key?.toUpperCase();
+    if (k === 'F12') e.preventDefault();
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && ['I','J','C'].includes(k)) e.preventDefault();
+    if ((e.ctrlKey || e.metaKey) && k === 'U') e.preventDefault(); // View Source
+  });
+</script>
 </body>
 </html>
