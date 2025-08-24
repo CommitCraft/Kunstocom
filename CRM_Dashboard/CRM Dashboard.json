@@ -1059,7 +1059,7 @@
         "type": "function",
         "z": "9f253f41c116e4a3",
         "name": "Update User SQL",
-        "func": "const id = msg.req.params.id;\nconst { username, password, role_id } = msg.payload;\n\nif (!username || !role_id) {\n    msg.statusCode = 400;\n    msg.payload = { error: 'username and role_id are required' };\n    return [null, msg];\n}\n\nlet fields = ['username=?', 'role_id=?'];\nlet params = [username, role_id];\n\nif (password && password.length > 0) {\n    fields.push(`password=?`);\n    params.push(password);\n}\n\nmsg.topic = `UPDATE users SET ${fields.join(', ')} WHERE id=?`;\nparams.push(id);\nmsg.params = params;\nreturn [msg, null];",
+        "func": "// const id = msg.req.params.id;\n// const { username, password, role_id } = msg.payload;\n\n// if (!username || !role_id) {\n//     msg.statusCode = 400;\n//     msg.payload = { error: 'username and role_id are required' };\n//     return [null, msg];\n// }\n\n// let fields = ['username=?', 'role_id=?'];\n// let params = [username, role_id];\n\n// if (password && password.length > 0) {\n//     fields.push(`password=?`);\n//     params.push(password);\n// }\n\n// msg.topic = `UPDATE users SET ${fields.join(', ')} WHERE id=?`;\n// params.push(id);\n// msg.params = params;\n// return [msg, null];\n// --- Update User SQL (fixed) ---\nconst id = parseInt(msg.req.params.id, 10);\nconst body = msg.payload || {};\nconst username = (body.username || \"\").trim();\nconst role_id = parseInt(body.role_id, 10);\nconst password = body.password; // optional\n\nif (!Number.isInteger(id)) {\n    msg.statusCode = 400;\n    msg.payload = { error: 'invalid user id' };\n    return [null, msg];\n}\nif (!username || !Number.isInteger(role_id)) {\n    msg.statusCode = 400;\n    msg.payload = { error: 'username and role_id are required' };\n    return [null, msg];\n}\n\n// Build dynamic update fields\nconst fields = ['username = ?', 'role_id = ?'];\nconst params = [username, role_id];\n\nif (password && String(password).length > 0) {\n    fields.push('password = ?');\n    params.push(password);\n}\n\n// SQL + bound params (IMPORTANT: use msg.payload for params)\nmsg.topic = `UPDATE users SET ${fields.join(', ')} WHERE id = ?`;\nparams.push(id);\n\n// MySQL node expects parameters in msg.payload as an array\nmsg.payload = params;\n\n// (Optional) For debugging only:\n// node.warn({ topic: msg.topic, params: msg.payload });\n\nreturn [msg, null];\n",
         "outputs": 2,
         "timeout": "",
         "noerr": 0,
@@ -1101,8 +1101,8 @@
         "method": "delete",
         "upload": false,
         "swaggerDoc": "",
-        "x": 1750,
-        "y": 1140,
+        "x": 1710,
+        "y": 1160,
         "wires": [
             [
                 "f93307533d6075b4"
@@ -1114,10 +1114,15 @@
         "type": "function",
         "z": "9f253f41c116e4a3",
         "name": "Delete User SQL",
-        "func": "const id = msg.req.params.id;\nmsg.topic = `DELETE FROM users WHERE id = ?`;\nmsg.params = [id];\nreturn msg;",
+        "func": "// const id = msg.req.params.id;\n// msg.topic = `DELETE FROM users WHERE id = ?`;\n// msg.params = [id];\n// return msg;\n\n// Delete User SQL  (fixed)\nconst id = parseInt(msg.req.params.id, 10);\n\nif (!Number.isInteger(id)) {\n  msg.statusCode = 400;\n  msg.payload = { error: 'invalid user id' };\n  // Send straight to HTTP Response (skip MySQL)\n  return [null, msg];\n}\n\nmsg.topic = 'DELETE FROM users WHERE id = ?';\n// MySQL node binds from msg.payload (array)\nmsg.payload = [id];\n\nreturn [msg, null];\n",
         "outputs": 1,
-        "x": 1950,
-        "y": 1140,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1910,
+        "y": 1160,
         "wires": [
             [
                 "6e3576ead1ce376f"
@@ -1130,11 +1135,11 @@
         "z": "9f253f41c116e4a3",
         "mydb": "79c1eb4f3b9a2123",
         "name": "MySQL Delete User",
-        "x": 2160,
-        "y": 1140,
+        "x": 2120,
+        "y": 1160,
         "wires": [
             [
-                "f7570cac8d8c6afa"
+                "c9a32db809f0b626"
             ]
         ]
     },
@@ -1500,9 +1505,29 @@
         "targetType": "full",
         "statusVal": "",
         "statusType": "auto",
-        "x": 2100,
-        "y": 1240,
+        "x": 2200,
+        "y": 1120,
         "wires": []
+    },
+    {
+        "id": "c9a32db809f0b626",
+        "type": "function",
+        "z": "9f253f41c116e4a3",
+        "name": "function 31",
+        "func": "// Normalize MySQL result to an API response\n// Many Node-RED MySQL nodes return an object with affectedRows for DELETE\nconst res = msg.payload;\nconst affected = (res && typeof res.affectedRows === 'number') ? res.affectedRows : 0;\n\nif (affected === 0) {\n  msg.statusCode = 404;\n  msg.payload = { success: false, message: 'User not found' };\n} else {\n  // Use 204 No Content if you prefer no body:\n  // msg.statusCode = 204; msg.payload = null;\n  msg.statusCode = 200;\n  msg.payload = { success: true, deleted: affected };\n}\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2310,
+        "y": 1160,
+        "wires": [
+            [
+                "f7570cac8d8c6afa"
+            ]
+        ]
     },
     {
         "id": "79c1eb4f3b9a2123",
