@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CFF ANNEALING – Oven 02</title>
+
+  <link href="https://fonts.googleapis.com/css?family=Inter" rel="stylesheet" />
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            lightbg: '#F2F2F2',
+            lightbox: '#DAE2F3',
+            darkbg: '#1f2937',
+            darkbox: '#374151',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    p { margin-block: 0; }
+    .iframe-wrap { position: relative; height: 420px; overflow: hidden; border-radius: 0.75rem; }
+    .iframe-wrap iframe { position: absolute; left: 0; width: 100%; height: 1500px; border: none; }
+  </style>
+</head>
+
+<body class="bg-lightbg dark:bg-darkbg text-black dark:text-white min-h-screen">
+  <div class="bg-lightbox dark:bg-darkbox rounded-md h-12 w-full mt-3 flex items-center justify-center text-2xl font-semibold">
+    CFF - ANNEALING
+  </div>
+
+  <div class="max-w-7xl mx-auto p-3">
+    <div class="bg-lightbg dark:bg-darkbg shadow rounded-xl p-4 mt-4">
+      <p class="text-xl font-semibold bg-lightbox dark:bg-darkbox rounded-lg p-2 w-full text-center">Oven – 02</p>
+
+      <div class="grid sm:grid-cols-3 gap-2 mt-4">
+        <div class="bg-lightbox dark:bg-darkbox rounded-lg p-2 text-center">
+          <p class="text-sm opacity-70">Batch ID</p>
+          <p id="batchid" class="text-lg font-medium">—</p>
+        </div>
+        <div class="bg-lightbox dark:bg-darkbox rounded-lg p-2 text-center">
+          <p class="text-sm opacity-70">Trolley Count / Max Cap</p>
+          <p id="trolleycount" class="text-lg font-medium">—</p>
+        </div>
+        <div class="bg-lightbox dark:bg-darkbox rounded-lg p-2 text-center">
+          <p class="text-sm opacity-70">CFF Part Count</p>
+          <p id="partcount" class="text-lg font-medium">—</p>
+        </div>
+      </div>
+
+      <div class="grid lg:grid-cols-2 gap-4 mt-4">
+        <!-- Trend / temp log -->
+        <div class="iframe-wrap border border-gray-200 dark:border-gray-700">
+          <iframe id="trendIframe"></iframe>
+        </div>
+        <!-- OEE Pie -->
+        <div class="bg-lightbg dark:bg-darkbg shadow p-4 rounded-xl">
+          <p class="text-lg font-semibold text-center mb-2">Utilization</p>
+          <div id="oee" class="mx-auto"></div>
+        </div>
+      </div>
+
+      <div class="mt-4 text-center">
+        <p id="status" class="text-xl font-bold"></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- PAGE CONFIG (Oven-2) ----------
+    const OVEN_NO = 2;
+    const IFRAME_OFFSET = -130; // Node-RED dashboard offset
+    const MAX_TROLLEY_CAP = 75;
+    const baseUrl = 'http://127.0.0.1:1880';
+    const iframeSrc = `${baseUrl}/dashboard/oventemplog`; // change if separate dashboards
+
+    // ---------- INIT ----------
+    document.title = `CFF ANNEALING – Oven ${String(OVEN_NO).padStart(2,'0')}`;
+    const iframe = document.getElementById('trendIframe');
+    iframe.src = iframeSrc;
+    iframe.style.top = IFRAME_OFFSET + 'px';
+
+    const keys = {
+      batchid:       `oven${OVEN_NO}batchid`,
+      trolleycount:  `oven${OVEN_NO}trolleycount`,
+      partcount:     `oven${OVEN_NO}partcount`,
+      status:        `oven${OVEN_NO}status`,
+      statuscolor:   `oven${OVEN_NO}statuscolor`,
+      oeeEndpoint:   `oven${OVEN_NO}oee`,
+      utilKey:       `oven${OVEN_NO}utilization`
+    };
+
+    async function safeJson(url) {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+        return await res.json();
+      } catch (e) {
+        console.error('Fetch failed:', url, e);
+        return null;
+      }
+    }
+
+    async function hydrateDetails() {
+      const data = await safeJson(`${baseUrl}/ovendetails`);
+      if (!data) return;
+
+      document.getElementById('batchid').textContent      = data[keys.batchid] ?? '—';
+      document.getElementById('trolleycount').textContent = `${data[keys.trolleycount] ?? 0} / ${MAX_TROLLEY_CAP}`;
+      document.getElementById('partcount').textContent    = data[keys.partcount] ?? '—';
+
+      const statusEl = document.getElementById('status');
+      statusEl.textContent = `Oven ${String(OVEN_NO).padStart(2,'0')} Status : ${data[keys.status] ?? '—'}`;
+      statusEl.style.color = data[keys.statuscolor] ?? '';
+    }
+
+    async function renderPie() {
+      const dataset = await safeJson(`${baseUrl}/${keys.oeeEndpoint}`);
+      if (!dataset || !Array.isArray(dataset)) return;
+
+      const labels = dataset.map(i => i.label);
+      const values = dataset.map(i => parseFloat(i.value));
+      const idx = labels.indexOf(keys.utilKey);
+      const utilization = idx >= 0 ? Number(values[idx]) : 0;
+
+      Plotly.newPlot('oee', [{
+        values,
+        labels,
+        type: 'pie',
+        hole: 0.7,
+        textinfo: 'percent',
+        hoverinfo: 'label+value',
+        marker: { colors: ['#3bad7a', 'red'] }
+      }], {
+        showlegend: false,
+        margin: { t: 0, l: 30, r: 0, b: 0 },
+        height: 260,
+        width: 360,
+        paper_bgcolor: '#DAE2F3',
+        annotations: [{
+          font: { size: 30, color: 'black' },
+          showarrow: false,
+          text: utilization.toFixed(2),
+          x: 0.5,
+          y: 0.5
+        }]
+      }, { displayModeBar: false, responsive: true });
+    }
+
+    hydrateDetails();
+    renderPie();
+    setInterval(hydrateDetails, 1000);
+    setInterval(renderPie, 5000);
+  </script>
+</body>
+</html>
